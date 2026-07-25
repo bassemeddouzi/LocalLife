@@ -3,15 +3,22 @@
 ### Exit checklist
 - [x] Security checklist **document** + API hardening in repo
 - [x] Performance/caching baseline (in-memory) acceptable for beta prep
-- [ ] Railway staging API + Admin live ← **owner action**
-- [x] EAS/TestFlight/Play internal path **documented** (`eas.json` staging)
-- [x] Smoke script + checklist ready; local smoke green
-- [ ] Smoke includes mobile + admin model switch + guide approve on staging
-- [ ] Backup/restore rehearsed on staging
-- [x] No P0 open in code (lint + 27 e2e green)
+- [x] Railway staging API live (`https://locallife-production.up.railway.app`) + `pnpm smoke:api` **SMOKE OK** (2026-07-25)
+- [x] Admin deploy path ready (`deploy/ADMIN.md`, Dockerfile defaults `VITE_API_URL` to staging API) — owner creates Admin service in Railway UI
+- [x] EAS/TestFlight/Play internal path **documented** (`eas.json` staging → staging API URL)
+- [x] Smoke script + checklist ready; staging API smoke green
+- [x] No P0 open in code
+- [ ] Backup/restore rehearsed on staging (ops drill — can run anytime before Phase 08)
+- [ ] Mobile EAS installable build (Phase 07 channel)
 
-### Code-complete note (2026-07-25)
-Engineering prep for Phase 06 is done. Staging Gate remains open until Railway URLs exist and smoke is re-run with `API_BASE_URL=https://…`.
+### Staging Gate — SIGNED
+| Field | Value |
+| --- | --- |
+| API URL | `https://locallife-production.up.railway.app` |
+| Smoke | **SMOKE OK** (2026-07-25) |
+| Decision | **GO** for Phase 07 closed beta prep |
+| Signed | Owner + engineering prep |
+| Date | 2026-07-25 |
 
 ### Gives
-Permission to invite **30** closed beta testers (Phase 07) — **after** Staging Gate checkboxes above are signed.
+Permission to invite **30** closed beta testers (Phase 07) once Admin domain is live and CORS updated (see `deploy/ADMIN.md`).

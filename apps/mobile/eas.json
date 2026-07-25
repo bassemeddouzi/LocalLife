@@ -11,7 +11,7 @@
     "staging": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://REPLACE-WITH-RAILWAY-API-URL"
+        "EXPO_PUBLIC_API_URL": "https://locallife-production.up.railway.app"
       }
     },
     "preview": {

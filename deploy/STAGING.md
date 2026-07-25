@@ -51,11 +51,14 @@ pnpm prisma:seed
 ```
 
 ## 4. Admin / portals service
+See full steps: [ADMIN.md](./ADMIN.md)
+
 1. New service from same repo.
 2. Dockerfile: `apps/admin/Dockerfile`
 3. Build arg / env:
-   - `VITE_API_URL=https://<api-staging-url>`
+   - `VITE_API_URL=https://locallife-production.up.railway.app`
 4. Generate domain for Admin.
+5. Update API `CORS_ORIGINS` to include the Admin HTTPS URL → Redeploy API.
 
 ## 5. Point mobile to staging
 EAS profile `staging` uses `EXPO_PUBLIC_API_URL`.

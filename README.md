@@ -92,8 +92,9 @@ Set `OPENROUTER_API_KEY` in `apps/api/.env` to use live OpenRouter; empty key us
 ## Deploy / staging (Phase 06)
 
 - Guide: [deploy/STAGING.md](./deploy/STAGING.md)
+- Admin: [deploy/ADMIN.md](./deploy/ADMIN.md)
 - Security checklist: [deploy/SECURITY-CHECKLIST.md](./deploy/SECURITY-CHECKLIST.md)
-- Smoke: `API_BASE_URL=https://… pnpm smoke:api`
+- Smoke: `API_BASE_URL=https://locallife-production.up.railway.app pnpm smoke:api`
 - EAS: [deploy/EAS-STAGING.md](./deploy/EAS-STAGING.md)
 - Beta ops: [deploy/BETA-OPS.md](./deploy/BETA-OPS.md)
 - Photo upgrade: [deploy/PHOTO-UPGRADE-PLAN.md](./deploy/PHOTO-UPGRADE-PLAN.md)
