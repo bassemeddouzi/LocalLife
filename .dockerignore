@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+**/dist
+**/.expo
+.git
+.env
+**/.env
+**/.env.*
+!.env.example
+apps/mobile
+LocalLife Documentation
+LocalLife Work Plan
+*.md
+deploy

@@ -21,4 +21,5 @@ A go/no-go packet including:
 - top trust complaints
 
 ### Done when
-- [ ] Packet written and reviewed by launch owner
+- [x] Metrics packet template ready (`deploy/BETA-OPS.md`)
+- [ ] Packet written and reviewed by launch owner (after beta)

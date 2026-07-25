@@ -1,0 +1,55 @@
+import type { CSSProperties } from 'react';
+
+export const ui = {
+  page: { maxWidth: 960 },
+  card: {
+    background: '#fff',
+    border: '1px solid #e2e8f0',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  } as CSSProperties,
+  btn: {
+    background: '#0f766e',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 8,
+    padding: '8px 12px',
+    cursor: 'pointer',
+    fontWeight: 600,
+  } as CSSProperties,
+  btnGhost: {
+    background: 'transparent',
+    color: '#0f766e',
+    border: '1px solid #0f766e',
+    borderRadius: 8,
+    padding: '8px 12px',
+    cursor: 'pointer',
+    fontWeight: 600,
+  } as CSSProperties,
+  btnDanger: {
+    background: '#b91c1c',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 8,
+    padding: '8px 12px',
+    cursor: 'pointer',
+    fontWeight: 600,
+  } as CSSProperties,
+  input: {
+    width: '100%',
+    padding: 10,
+    borderRadius: 8,
+    border: '1px solid #cbd5e1',
+    marginTop: 4,
+    marginBottom: 10,
+    boxSizing: 'border-box',
+  } as CSSProperties,
+  muted: { color: '#64748b' } as CSSProperties,
+  row: {
+    display: 'flex',
+    gap: 8,
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  } as CSSProperties,
+};

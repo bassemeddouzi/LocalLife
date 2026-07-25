@@ -19,5 +19,6 @@ Prepare mobile distribution channels decided in Decisions Log.
 | Play Internal Testing track | Android beta lane ready |
 
 ### Done when
-- [ ] At least one staging mobile build installable by owner
-- [ ] Path documented to add up to 30 testers in Phase 07
+- [x] `eas.json` `staging` profile + `deploy/EAS-STAGING.md`
+- [ ] At least one staging mobile build installable by owner (needs Expo + staging API URL)
+- [x] Path documented to add up to 30 testers in Phase 07

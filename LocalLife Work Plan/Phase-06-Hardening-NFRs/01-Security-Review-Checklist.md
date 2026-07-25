@@ -27,5 +27,7 @@ Signed checklist covering:
 | Audit | admin actions | AuditLog rows |
 
 ### Done when
-- [ ] All P0 security items pass
-- [ ] Exceptions documented with expiry
+- [x] Security checklist document ready (`deploy/SECURITY-CHECKLIST.md`)
+- [x] Helmet, CORS prod guard, JWT/RBAC/throttle/validation in place
+- [ ] Checklist signed against live **staging** HTTPS (owner after Railway deploy)
+- [ ] Exceptions documented with expiry (on sign-off)

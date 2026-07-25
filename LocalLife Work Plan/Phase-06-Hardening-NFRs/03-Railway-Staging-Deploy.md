@@ -24,4 +24,5 @@ Deploy API (+ Admin) and Postgres to **Railway** staging.
 DB migrate → API deploy → Admin deploy → health → seed → point mobile EAS to API URL
 
 ### Done when
-- [ ] Staging URLs work without local machine
+- [x] Dockerfiles + `railway.toml` + `deploy/STAGING.md` ready
+- [ ] Staging URLs work without local machine (owner: create Railway project + set secrets)

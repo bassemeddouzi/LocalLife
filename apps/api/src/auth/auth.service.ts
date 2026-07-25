@@ -125,6 +125,63 @@ export class AuthService {
     };
   }
 
+  async updatePreferences(
+    userId: string,
+    dto: {
+      personaType?: import('@prisma/client').PersonaType;
+      budgetBand?: import('@prisma/client').BudgetBand;
+      locale?: string;
+      homeCityId?: string;
+      consentAnalytics?: boolean;
+      consentPersonalization?: boolean;
+      consentPush?: boolean;
+      consentMarketing?: boolean;
+    },
+  ) {
+    if (dto.personaType || dto.locale) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          ...(dto.personaType ? { personaType: dto.personaType } : {}),
+          ...(dto.locale ? { locale: dto.locale } : {}),
+        },
+      });
+    }
+
+    await this.prisma.userPreference.upsert({
+      where: { userId },
+      create: {
+        userId,
+        budgetBand: dto.budgetBand ?? 'MEDIUM',
+        homeCityId: dto.homeCityId,
+        consentAnalytics: dto.consentAnalytics ?? false,
+        consentPersonalization: dto.consentPersonalization ?? false,
+        consentPush: dto.consentPush ?? false,
+        consentMarketing: dto.consentMarketing ?? false,
+        consentUpdatedAt: new Date(),
+      },
+      update: {
+        ...(dto.budgetBand ? { budgetBand: dto.budgetBand } : {}),
+        ...(dto.homeCityId !== undefined ? { homeCityId: dto.homeCityId } : {}),
+        ...(dto.consentAnalytics !== undefined
+          ? { consentAnalytics: dto.consentAnalytics }
+          : {}),
+        ...(dto.consentPersonalization !== undefined
+          ? { consentPersonalization: dto.consentPersonalization }
+          : {}),
+        ...(dto.consentPush !== undefined
+          ? { consentPush: dto.consentPush }
+          : {}),
+        ...(dto.consentMarketing !== undefined
+          ? { consentMarketing: dto.consentMarketing }
+          : {}),
+        consentUpdatedAt: new Date(),
+      },
+    });
+
+    return this.me(userId);
+  }
+
   private async issueTokens(
     userId: string,
     email: string,

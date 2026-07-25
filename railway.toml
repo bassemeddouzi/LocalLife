@@ -1,0 +1,12 @@
+# Railway service hints (set root directory / Dockerfile path in dashboard)
+# API service: Dockerfile path = apps/api/Dockerfile, watch paths apps/api/**
+# Admin service: Dockerfile path = apps/admin/Dockerfile, build arg VITE_API_URL
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "apps/api/Dockerfile"
+
+[deploy]
+healthcheckPath = "/v1/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"

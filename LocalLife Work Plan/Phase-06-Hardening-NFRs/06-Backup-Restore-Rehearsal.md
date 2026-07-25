@@ -18,5 +18,6 @@ Prove you can recover staging/prod-like data before beta depends on it.
 | Record RTO/RPO notes | timings | ops document |
 
 ### Done when
-- [ ] Restore drill succeeded once
+- [x] Backup/restore procedure documented (`deploy/BACKUP-RESTORE.md`)
+- [ ] Restore drill succeeded once on staging Postgres
 - [ ] Notes stored for Phase 08 prod adaptation

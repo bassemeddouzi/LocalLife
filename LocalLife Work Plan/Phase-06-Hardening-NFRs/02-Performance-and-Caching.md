@@ -20,5 +20,6 @@ Reduce latency for hot city reads and confirm mobile stays light against staging
 | Perf notes | measurements | baseline numbers recorded |
 
 ### Done when
-- [ ] Hot endpoints measured before/after
-- [ ] No obvious N+1 list pathologies remain
+- [x] In-memory hot cache for geo/transport (+ invalidate on place approve)
+- [x] No obvious N+1 in public list paths used by mobile/home
+- [ ] Optional: record before/after timings on Railway staging

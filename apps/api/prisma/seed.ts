@@ -1,7 +1,30 @@
 import { PrismaClient, UserRole, VerificationStatus } from '@prisma/client';
 import * as argon2 from 'argon2';
+import { seedDjerbaP0 } from './seed-djerba-p0';
 
 const prisma = new PrismaClient();
+
+const CATEGORIES: Array<{
+  key: string;
+  name: string;
+  icon?: string;
+  sortOrder: number;
+}> = [
+  { key: 'restaurants', name: 'Restaurants', icon: 'utensils', sortOrder: 10 },
+  { key: 'cafes', name: 'Cafés', icon: 'coffee', sortOrder: 20 },
+  { key: 'beaches', name: 'Beaches', icon: 'beach', sortOrder: 30 },
+  { key: 'hotels', name: 'Hotels', icon: 'bed', sortOrder: 40 },
+  { key: 'museums', name: 'Museums', icon: 'landmark', sortOrder: 50 },
+  { key: 'supermarkets', name: 'Supermarkets', icon: 'cart', sortOrder: 60 },
+  { key: 'pharmacies', name: 'Pharmacies', icon: 'pill', sortOrder: 70 },
+  { key: 'hospitals', name: 'Hospitals', icon: 'hospital', sortOrder: 80 },
+  { key: 'parks', name: 'Parks', icon: 'tree', sortOrder: 90 },
+  { key: 'shops_souks', name: 'Shops & Souks', icon: 'store', sortOrder: 100 },
+  { key: 'activities', name: 'Activities', icon: 'activity', sortOrder: 110 },
+  { key: 'nightlife', name: 'Nightlife', icon: 'moon', sortOrder: 120 },
+  { key: 'transport_hubs', name: 'Transport', icon: 'bus', sortOrder: 130 },
+  { key: 'banks', name: 'Banks & ATMs', icon: 'bank', sortOrder: 140 },
+];
 
 async function main() {
   const adminPassword = await argon2.hash('Admin123!');
@@ -70,27 +93,88 @@ async function main() {
       defaultCurrency: 'TND',
       status: 'ACTIVE',
       packVersion: 'tn-v1',
-      emergencyNumbersJson: { police: '197', ambulance: '190' },
+      emergencyNumbersJson: { police: '197', ambulance: '190', fire: '198' },
     },
   });
 
-  await prisma.city.upsert({
+  await prisma.region.upsert({
+    where: { id: '00000000-0000-4000-8000-000000000001' },
+    update: { name: 'Medenine', status: 'ACTIVE' },
+    create: {
+      id: '00000000-0000-4000-8000-000000000001',
+      countryId: country.id,
+      name: 'Medenine',
+      code: 'ME',
+      status: 'ACTIVE',
+    },
+  }).catch(async () => {
+    // id may collide across reseed — upsert by name fallback
+    const existing = await prisma.region.findFirst({
+      where: { countryId: country.id, name: 'Medenine' },
+    });
+    if (!existing) {
+      await prisma.region.create({
+        data: {
+          countryId: country.id,
+          name: 'Medenine',
+          code: 'ME',
+          status: 'ACTIVE',
+        },
+      });
+    }
+  });
+
+  const region = await prisma.region.findFirst({
+    where: { countryId: country.id, name: 'Medenine' },
+  });
+
+  const city = await prisma.city.upsert({
     where: { countryId_slug: { countryId: country.id, slug: 'djerba' } },
-    update: { status: 'ACTIVE', isFeatured: true, contentPackVersion: 'djerba-fake-v1' },
+    update: {
+      status: 'ACTIVE',
+      isFeatured: true,
+      contentPackVersion: 'djerba-fake-v2',
+      regionId: region?.id,
+    },
     create: {
       countryId: country.id,
+      regionId: region?.id,
       name: 'Djerba',
       slug: 'djerba',
       latitude: 33.8075,
       longitude: 10.8451,
       status: 'ACTIVE',
       isFeatured: true,
-      contentPackVersion: 'djerba-fake-v1',
+      contentPackVersion: 'djerba-fake-v2',
       defaultLocale: 'fr',
     },
   });
 
-  // ensure guide profile exists if user was updated path
+  await prisma.city.upsert({
+    where: { countryId_slug: { countryId: country.id, slug: 'draft-city' } },
+    update: { status: 'DISABLED' },
+    create: {
+      countryId: country.id,
+      name: 'Draft City',
+      slug: 'draft-city',
+      status: 'DISABLED',
+    },
+  });
+
+  const cats: Record<string, string> = {};
+  for (const cat of CATEGORIES) {
+    const row = await prisma.category.upsert({
+      where: { key: cat.key },
+      update: {
+        name: cat.name,
+        icon: cat.icon,
+        sortOrder: cat.sortOrder,
+      },
+      create: cat,
+    });
+    cats[cat.key] = row.id;
+  }
+
   await prisma.guideProfile.upsert({
     where: { userId: guide.id },
     update: { status: 'APPROVED' },
@@ -102,9 +186,35 @@ async function main() {
     },
   });
 
+  // Clear dependent rows that block place deletes from prior packs
+  await prisma.review.deleteMany({ where: { place: { cityId: city.id } } });
+  await prisma.favorite.deleteMany({
+    where: {
+      targetType: 'PLACE',
+      targetId: { in: (await prisma.place.findMany({ where: { cityId: city.id }, select: { id: true } })).map((p) => p.id) },
+    },
+  });
+  await prisma.businessPlaceClaim.deleteMany({
+    where: { place: { cityId: city.id } },
+  });
+  await prisma.report.deleteMany({
+    where: {
+      targetType: 'PLACE',
+      targetId: { in: (await prisma.place.findMany({ where: { cityId: city.id }, select: { id: true } })).map((p) => p.id) },
+    },
+  });
+
+  const pack = await seedDjerbaP0(prisma, {
+    countryId: country.id,
+    cityId: city.id,
+    adminUserId: admin.id,
+    cats,
+  });
+
   console.log('Seed complete');
   console.log('ADMIN:', admin.email, 'Admin123!');
   console.log('GUIDE:', guide.email, 'Guide123!');
+  console.log('Djerba pack:', pack);
   void VerificationStatus;
 }
 

@@ -17,4 +17,6 @@ Deepen content; start replacing fake photos with real Guide uploads when availab
 - Photo upgrade plan (fake → real) tracked
 
 ### Done when
+- [x] P1 seed pack `djerba-fake-v2` (~70 places, more events/experiences, ferry)
+- [x] Photo upgrade plan tracked (`deploy/PHOTO-UPGRADE-PLAN.md`)
 - [ ] Content owner signs P1 completeness for beta

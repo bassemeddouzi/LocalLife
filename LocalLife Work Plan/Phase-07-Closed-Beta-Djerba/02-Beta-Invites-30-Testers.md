@@ -23,5 +23,6 @@ Run closed beta with the locked size: **30 testers**.
 Tourists / locals / students-like users if possible — not only friends who “know the app story”.
 
 ### Done when
+- [x] Invite/feedback templates ready (`deploy/BETA-OPS.md`)
 - [ ] At least 30 invites sent OR 30 joined (record actual count)
 - [ ] Feedback log exists and reviewed once

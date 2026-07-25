@@ -15,5 +15,8 @@
 - GO → Phase 08 Railway production
 - NO-GO → loop fixes with new date
 
+### Prep note (2026-07-25)
+P1 seed + beta ops templates are in repo. **Invites / Go-No-Go still require Phase 06 Staging Gate** (Railway + EAS).
+
 ### Done when
 - [ ] Explicit GO or NO-GO recorded with date/signer

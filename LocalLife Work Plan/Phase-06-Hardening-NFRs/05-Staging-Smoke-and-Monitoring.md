@@ -24,5 +24,7 @@ Prove Railway staging critical paths and observability.
 - Monitoring test error visible in Sentry
 
 ### Done when
-- [ ] Smoke sheet green
-- [ ] Monitoring receiving data
+- [x] Automated API smoke (`pnpm smoke:api`) green locally
+- [x] Smoke + monitoring checklist documented (`deploy/SMOKE-MONITORING.md`)
+- [ ] Smoke sheet green against **Railway staging**
+- [ ] Monitoring receiving data (Sentry DSN on staging)

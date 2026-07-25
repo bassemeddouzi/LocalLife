@@ -1,6 +1,7 @@
 import { useState, type CSSProperties, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { adminPing, login } from '../api';
+import { login, saveSession } from '../api';
+import { ui } from '../ui';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -15,14 +16,11 @@ export function LoginPage() {
     setError('');
     try {
       const data = await login(email, password);
-      if (data.user.role !== 'ADMIN') {
-        throw new Error('Admin role required');
-      }
-      await adminPing(data.accessToken);
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
-      localStorage.setItem('adminUser', JSON.stringify(data.user));
-      navigate('/');
+      saveSession(data);
+      if (data.user.role === 'ADMIN') navigate('/admin');
+      else if (data.user.role === 'GUIDE') navigate('/guide');
+      else if (data.user.role === 'BUSINESS') navigate('/business');
+      else setError('Use an ADMIN, GUIDE, or BUSINESS account for portals');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
@@ -33,14 +31,14 @@ export function LoginPage() {
   return (
     <div style={styles.wrap}>
       <form onSubmit={onSubmit} style={styles.card}>
-        <h1>LocalLife Admin</h1>
-        <p style={styles.muted}>ADMIN role required</p>
+        <h1>LocalLife Portals</h1>
+        <p style={ui.muted}>Admin · Guide · Business</p>
         <label>
           Email
           <input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            style={styles.input}
+            style={ui.input}
           />
         </label>
         <label>
@@ -49,13 +47,16 @@ export function LoginPage() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            style={styles.input}
+            style={ui.input}
           />
         </label>
-        {error ? <p style={styles.error}>{error}</p> : null}
-        <button type="submit" disabled={loading} style={styles.btn}>
+        {error ? <p style={{ color: '#f87171' }}>{error}</p> : null}
+        <button type="submit" disabled={loading} style={ui.btn}>
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
+        <p style={{ ...ui.muted, fontSize: 12 }}>
+          Seeds: admin@ / guide@ · Create BUSINESS via API profile first
+        </p>
       </form>
     </div>
   );
@@ -70,34 +71,12 @@ const styles: Record<string, CSSProperties> = {
     color: '#e2e8f0',
   },
   card: {
-    width: 360,
+    width: 380,
     display: 'flex',
     flexDirection: 'column',
-    gap: 12,
+    gap: 8,
     background: '#1e293b',
     padding: 24,
     borderRadius: 12,
   },
-  input: {
-    display: 'block',
-    width: '100%',
-    marginTop: 4,
-    padding: 10,
-    borderRadius: 8,
-    border: '1px solid #334155',
-    background: '#0f172a',
-    color: '#e2e8f0',
-  },
-  btn: {
-    marginTop: 8,
-    padding: 12,
-    borderRadius: 8,
-    border: 'none',
-    background: '#0d9488',
-    color: 'white',
-    fontWeight: 600,
-    cursor: 'pointer',
-  },
-  error: { color: '#f87171', margin: 0 },
-  muted: { opacity: 0.7, marginTop: 0 },
 };

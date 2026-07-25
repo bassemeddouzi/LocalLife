@@ -1,7 +1,16 @@
-import { Body, Controller, Get, Post, Headers, Ip } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Patch,
+  Post,
+  Headers,
+  Ip,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto, RefreshDto, RegisterDto } from './dto/auth.dto';
+import { UpdatePreferencesDto } from './dto/preferences.dto';
 import { Auth, CurrentUser, AuthUser } from './auth.decorators';
 
 @Controller('v1/auth')
@@ -42,5 +51,14 @@ export class AuthController {
   @Auth()
   me(@CurrentUser() user: AuthUser) {
     return this.auth.me(user.id);
+  }
+
+  @Patch('me/preferences')
+  @Auth()
+  updatePreferences(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: UpdatePreferencesDto,
+  ) {
+    return this.auth.updatePreferences(user.id, dto);
   }
 }
