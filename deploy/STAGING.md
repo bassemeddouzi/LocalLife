@@ -19,11 +19,11 @@ Deploy **API + Admin + Postgres** to Railway staging without depending on your l
 2. Settings:
    - **Root Directory:** `/` (monorepo root)
    - **Dockerfile path:** `apps/api/Dockerfile`
-3. Variables (staging):
+3. Variables (staging) — set on the **API** service (not only Postgres):
 
 ```text
+DATABASE_URL=<Variable Reference from Postgres → DATABASE_URL>
 NODE_ENV=production
-DATABASE_URL=<from Railway Postgres>
 JWT_ACCESS_SECRET=<random 32+>
 JWT_REFRESH_SECRET=<random 32+>
 JWT_ACCESS_EXPIRES_IN=15m
@@ -34,6 +34,8 @@ SUPPORT_FORM_URL=https://forms.gle/...
 THROTTLE_LIMIT=120
 PORT=3000
 ```
+
+> Postgres already has `DATABASE_URL`. The API must **reference** it, or Prisma fails at boot.
 
 4. Generate domain → copy HTTPS API URL (e.g. `https://locallife-api-staging.up.railway.app`).
 5. Health: `GET /v1/health` and `GET /v1/health/ready`.
