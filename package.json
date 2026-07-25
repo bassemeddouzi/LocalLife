@@ -1,0 +1,19 @@
+{
+  "name": "locallife",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev:api": "pnpm --filter @locallife/api dev",
+    "dev:admin": "pnpm --filter @locallife/admin dev",
+    "dev:mobile": "pnpm --filter @locallife/mobile start",
+    "build:api": "pnpm --filter @locallife/api build",
+    "build:admin": "pnpm --filter @locallife/admin build",
+    "test:api": "pnpm --filter @locallife/api test",
+    "lint:api": "pnpm --filter @locallife/api lint",
+    "prisma:migrate": "pnpm --filter @locallife/api prisma:migrate",
+    "prisma:seed": "pnpm --filter @locallife/api prisma:seed"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
