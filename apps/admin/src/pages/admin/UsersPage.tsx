@@ -321,7 +321,9 @@ export function UsersPage() {
         <form onSubmit={addGuide} style={ui.panel}>
           <h2>Add Guide</h2>
           <p style={{ ...ui.muted, marginTop: 0 }}>
-            Creates an approved Guide. Share the password securely.
+            Creates an approved Guide. <strong>City + district are required</strong>{' '}
+            so the Guide appears on the Map (orange pin). Share the password
+            securely.
           </p>
           <div style={ui.grid2}>
             <label>
@@ -425,36 +427,56 @@ export function UsersPage() {
               <th>Zone</th>
               <th>Status</th>
               <th>Last login</th>
+              <th>Map</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} className="ll-empty">
+                <td colSpan={7} className="ll-empty">
                   Loading…
                 </td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={6} className="ll-empty">
+                <td colSpan={7} className="ll-empty">
                   No {TAB_LABEL[tab].toLowerCase()} yet
                 </td>
               </tr>
             ) : (
-              users.map((u) => (
+              users.map((u) => {
+                const hasZone = Boolean(
+                  u.guideProfile?.primaryDistrictId ||
+                    u.guideProfile?.baseCityId,
+                );
+                const zoneLabel =
+                  tab === 'GUIDE'
+                    ? u.guideProfile?.primaryDistrict?.name ??
+                      (u.guideProfile?.baseCity?.name
+                        ? `${u.guideProfile.baseCity.name} · unassigned`
+                        : 'No zone')
+                    : '—';
+                return (
                 <tr key={u.id}>
                   <td>
                     <strong>{u.displayName}</strong>
                   </td>
                   <td style={{ color: 'var(--ll-muted)' }}>{u.email}</td>
-                  <td style={{ color: 'var(--ll-muted)', fontSize: '0.85rem' }}>
-                    {tab === 'GUIDE'
-                      ? u.guideProfile?.primaryDistrict?.name ??
-                        (u.guideProfile?.baseCity?.name
-                          ? `${u.guideProfile.baseCity.name} · unassigned`
-                          : '—')
-                      : '—'}
+                  <td>
+                    {tab === 'GUIDE' ? (
+                      <span
+                        className={`ll-badge ${
+                          hasZone && u.guideProfile?.primaryDistrictId
+                            ? 'll-badge--ok'
+                            : 'll-badge--warn'
+                        }`}
+                      >
+                        {zoneLabel}
+                      </span>
+                    ) : (
+                      '—'
+                    )}
                   </td>
                   <td>
                     <StatusBadge status={u.status} />
@@ -465,34 +487,32 @@ export function UsersPage() {
                       : '—'}
                   </td>
                   <td>
+                    {tab === 'GUIDE' ? (
+                      <button
+                        type="button"
+                        className="ll-btn-map"
+                        onClick={() =>
+                          navigate(
+                            `/admin/map?guide=${encodeURIComponent(u.id)}`,
+                          )
+                        }
+                      >
+                        Show on map
+                      </button>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td>
                     <div className="ll-actions">
                       {tab === 'GUIDE' ? (
-                        <>
-                          <button
-                            type="button"
-                            style={{ ...ui.btnGhost, ...ui.btnSm }}
-                            onClick={() => void openGuide(u.id)}
-                          >
-                            Historic
-                          </button>
-                          <button
-                            type="button"
-                            style={{ ...ui.btn, ...ui.btnSm }}
-                            title={
-                              u.guideProfile?.primaryDistrictId ||
-                              u.guideProfile?.baseCityId
-                                ? 'Open map focused on this Guide'
-                                : 'No zone yet — map will explain what is missing'
-                            }
-                            onClick={() =>
-                              navigate(
-                                `/admin/map?guide=${encodeURIComponent(u.id)}`,
-                              )
-                            }
-                          >
-                            Show on map
-                          </button>
-                        </>
+                        <button
+                          type="button"
+                          style={{ ...ui.btnGhost, ...ui.btnSm }}
+                          onClick={() => void openGuide(u.id)}
+                        >
+                          Historic
+                        </button>
                       ) : null}
                       {tab === 'BUSINESS' ? (
                         <button
@@ -523,7 +543,8 @@ export function UsersPage() {
                     </div>
                   </td>
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>

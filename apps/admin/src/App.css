@@ -231,6 +231,23 @@ label {
   transform: scale(1.15);
 }
 
+.ll-btn-map {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 0.8rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 10px;
+  background: #ea580c;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.ll-btn-map:hover {
+  background: #c2410c;
+}
+
 @media (max-width: 900px) {
   .ll-shell-layout {
     grid-template-columns: 1fr !important;

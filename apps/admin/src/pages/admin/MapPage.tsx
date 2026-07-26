@@ -74,6 +74,29 @@ export function MapPage() {
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, []);
 
+  useEffect(() => {
+    if (!data || focusGuideId) return;
+    void api<Array<{ id: string; displayName: string }>>(
+      '/v1/admin/users?role=GUIDE',
+    )
+      .then((rows) => {
+        const onMap = new Set((data.guides ?? []).map((g) => g.userId));
+        const missing = rows.filter((u) => !onMap.has(u.id));
+        if (missing.length === 0) {
+          setFocusMsg('');
+          return;
+        }
+        const names = missing
+          .slice(0, 3)
+          .map((m) => m.displayName)
+          .join(', ');
+        setFocusMsg(
+          `Map has ${data.guides?.length ?? 0} Guide pin(s), but Users has ${rows.length} Guide(s). Missing on map: ${names}${missing.length > 3 ? '…' : ''}. Fix: Historic → set district → Save zone (or run prisma:seed on API).`,
+        );
+      })
+      .catch(() => undefined);
+  }, [data, focusGuideId]);
+
   const primaryZone = useMemo(() => {
     if (!data) return null;
     return data.activeCities.find((c) => c.zone)?.zone ?? null;
