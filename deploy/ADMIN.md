@@ -2,33 +2,42 @@
 
 API already live: `https://locallife-production.up.railway.app`
 
+> **Important:** Do **not** point Admin at `/railway.toml` (removed) or `/apps/api/railway.toml`.
+> Admin must use **`/apps/admin/railway.toml`** or it will run Prisma/API and fail on `DATABASE_URL`.
+
 ## Steps (Railway dashboard)
 
-1. Open the **same project** as the API + Postgres.
-2. **New** → **GitHub Repo** → select `LocalLife` (same repo).
-3. Service settings:
-   - **Root Directory:** `/` (repo root)
-   - **Builder:** Dockerfile
-   - **Dockerfile path:** `apps/admin/Dockerfile`
-4. Variables / Build:
-   - Build argument (or variable available at build):  
-     `VITE_API_URL=https://locallife-production.up.railway.app`  
-     (also the Dockerfile default — set explicitly to be safe)
-5. **Settings → Networking → Generate Domain**  
-   Example: `https://locallife-admin-xxxx.up.railway.app`
-6. Open that URL → Login page → `admin@locallife.local` / `Admin123!`
+1. **Push** this repo to GitHub (includes `apps/admin/railway.toml`).
+2. Open the **same project** as the API + Postgres.
+3. Open the Admin service (e.g. `compassionate-unity`) → **Settings**.
+4. **Config-as-code → Railway Config File** — type exactly:
+   ```text
+   /apps/admin/railway.toml
+   ```
+5. Root Directory: leave empty / `/` (monorepo root — Dockerfile copies from root).
+6. Variables:
+   - `VITE_API_URL=https://locallife-production.up.railway.app`
+   - **No** `DATABASE_URL` on Admin
+7. Start Command: leave **empty** (nginx CMD from Dockerfile).
+8. **Redeploy** (Clear build cache if needed).
+9. **Networking → Generate Domain** if not done.
+10. Open Admin URL → login `admin@locallife.local` / `Admin123!`
+
+### Deploy log check
+- Good: nginx / static / `apps/admin` build
+- Bad: `@locallife/api` / `prisma migrate` / `DATABASE_URL` → wrong config file
+
+## API service (same time)
+Set Config File to:
+```text
+/apps/api/railway.toml
+```
+(so API keeps working after root `railway.toml` was removed)
 
 ## CORS (API service)
-
-On the **API** service Variables, set:
 
 ```text
 CORS_ORIGINS=https://YOUR-ADMIN-DOMAIN.up.railway.app,http://localhost:5173
 ```
 
-Then **Redeploy API** (env change only).
-
-## Quick check
-- Admin loads login screen
-- Login works
-- Moderation / AI config pages load (need seed done)
+Then **Redeploy API**.

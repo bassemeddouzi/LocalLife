@@ -1,0 +1,13 @@
+# LocalLife API — Railway config-as-code
+# In Railway API service → Settings → Config-as-code → Railway Config File:
+#   /apps/api/railway.toml
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "apps/api/Dockerfile"
+watchPatterns = ["apps/api/**", "packages/shared-types/**", "pnpm-lock.yaml", "package.json"]
+
+[deploy]
+healthcheckPath = "/v1/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
