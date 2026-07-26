@@ -1,8 +1,8 @@
 # 07 — Decisions Log (Locked)
 
 **Document type:** Binding product/engineering decisions  
-**Version:** 1.1  
-**Date locked:** 2026-07-24  
+**Version:** 1.2  
+**Date locked:** 2026-07-24 (updated 2026-07-26)  
 **Status:** LOCKED for MVP — change only with explicit re-decision
 
 ---
@@ -28,7 +28,8 @@
 | Apps in monorepo | `apps/api` · `apps/mobile` · `apps/admin` · optional `packages/shared-types` |
 | Mobile framework | **Expo first** (switch to bare RN later only if blocked) |
 | Mobile targets | **iOS + Android** |
-| Admin surface | **Real Admin web app** (not scripts-only) |
+| Mobile binary | **Single app** — UI switches by role (`CLIENT` / `GUIDE` / `BUSINESS`) after login |
+| Admin surface | **Real Admin web app** (not scripts-only; not a separate Admin mobile app) |
 
 ---
 
@@ -36,19 +37,22 @@
 
 ### In MVP (must ship before/at public Djerba launch)
 
-- Client mobile app (Expo): auth, home, explore, chat, saved, profile
-- Grounded AI chat (RAG)
+- **One** Expo mobile app: Client (auth, home, explore, chat, saved, profile) + Guide mode + Business mode by role
+- Grounded AI chat (RAG) for Client
 - Places, events, experiences, reviews, favorites, reports
 - Local knowledge: transport, arrival, rules + Djerba seed
-- **Guide portal capabilities in MVP** (account from start, contribute content, moderated)
-- **Business portal basics in MVP** (claim/profile; **no payments**)
-- **Admin web app**: moderation, users/roles, content, seed tools, feature flags, **LLM model config**
+- **Guide**: Admin-provisioned accounts; contribute content (moderated); login on same mobile app (**no** public Guide registration)
+- **Business**: Admin-provisioned accounts; claim/profile basics (**no payments**); same mobile app
+- **Admin web**: moderation, **Clients / Guides / Business** lists, Add Guide/Business, Block/Reactivate, light historic, AI model switch, feature flags, seed tools
 - Multi-language UI + content path: **EN + FR + AR** (RTL for AR)
 - Limited offline cache
 - Analytics + crash reporting + rate limits
 
 ### Out of MVP (later phases)
 
+- Separate Guide or Business store apps / flavors
+- Admin mobile app
+- SMTP invite emails (staging: show temporary password once in Admin UI)
 - Booking / payments / marketplace (Phase 13)
 - Full proactive AI Agent (Phase 14)
 - Heavy monetization beyond prep (Phase 11+)
@@ -80,11 +84,23 @@
 | Early data | **Fake/demo seed allowed** for development tests |
 | Early photos | **Fake/placeholder images first** |
 | Real Djerba media | Uploaded later via **Guide account** |
-| Guide from day one | Create **Guide account early** and use it to enter/manage seed |
+| Guide from day one | **Admin creates** Guide (or seed `guide@locallife.local`) — no self-serve Guide signup by default (`FF_GUIDE_SELF_APPLY=false`) |
 
 ---
 
-## 6. Work Plan implications
+## 6. Roles & provisioning
+
+| Topic | Decision |
+| --- | --- |
+| Public register (mobile) | **CLIENT only** |
+| Guide / Business create | **Admin web only** (temp password shown once; email mailer later) |
+| Block | `UserStatus.SUSPENDED` — cannot login; approved content stays until separately unpublished |
+| Admin create/delete in UI | **Out of MVP** (seed / script only) |
+| Admin accounts | Seed `admin@locallife.local` |
+
+---
+
+## 7. Work Plan implications
 
 1. Phase 00 repo decision is **pre-answered** (monorepo + 3 apps + Expo).
 2. Phase 01 must scaffold **api + mobile (Expo) + admin**.
@@ -94,10 +110,11 @@
 6. Phase 06/08 deploy targets = **Railway**.
 7. Phase 07 beta size = **30 testers**.
 8. Phase 10 becomes **portal enhancements**, not first introduction of Guide/Business.
+9. **One mobile binary** with role navigators — do not split Guide/Business into separate Expo apps for MVP.
 
 ---
 
-## 7. OpenRouter Admin config (contract)
+## 8. OpenRouter Admin config (contract)
 
 **Takes (Admin sets):** API key ref (secret), default model id, optional fallback model, enabled flag, rate/budget notes  
 **Gives (API runtime):** Chat orchestrator reads active model config from DB/config store — **no redeploy to switch model**

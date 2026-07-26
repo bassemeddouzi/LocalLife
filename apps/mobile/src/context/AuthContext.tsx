@@ -52,6 +52,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const me = await apiFetch<UserMe>('/v1/auth/me');
     setUser(me);
+    // Guide / Business skip tourist onboarding
+    if (me.role === 'GUIDE' || me.role === 'BUSINESS' || me.role === 'ADMIN') {
+      setNeedsOnboarding(false);
+      return;
+    }
     const onboarded = await AsyncStorage.getItem(`onboarded:${me.id}`);
     setNeedsOnboarding(!onboarded);
   }, []);

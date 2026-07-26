@@ -82,6 +82,16 @@ async function main() {
     },
   });
 
+  await prisma.featureFlag.upsert({
+    where: { key: 'FF_GUIDE_SELF_APPLY' },
+    update: { enabledGlobal: false },
+    create: {
+      key: 'FF_GUIDE_SELF_APPLY',
+      description: 'Allow clients to self-apply as guides',
+      enabledGlobal: false,
+    },
+  });
+
   const country = await prisma.country.upsert({
     where: { iso2: 'TN' },
     update: { status: 'ACTIVE', packVersion: 'tn-v1' },

@@ -78,6 +78,14 @@ export class GuidesController {
     if (user.role === UserRole.ADMIN) {
       throw new ForbiddenException('Admin cannot apply as guide');
     }
+    const flag = await this.prisma.featureFlag.findUnique({
+      where: { key: 'FF_GUIDE_SELF_APPLY' },
+    });
+    if (!flag?.enabledGlobal) {
+      throw new ForbiddenException(
+        'Guide self-apply is disabled — ask Admin to create your account',
+      );
+    }
     const existing = await this.prisma.guideProfile.findUnique({
       where: { userId: user.id },
     });

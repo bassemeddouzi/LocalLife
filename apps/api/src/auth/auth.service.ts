@@ -7,7 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes } from 'crypto';
-import { UserRole } from '@prisma/client';
+import { UserRole, UserStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 
@@ -51,6 +51,9 @@ export class AuthService {
     if (!user?.passwordHash || user.deletedAt) {
       throw new UnauthorizedException('Invalid credentials');
     }
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException('Account suspended');
+    }
     const valid = await argon2.verify(user.passwordHash, dto.password);
     if (!valid) {
       throw new UnauthorizedException('Invalid credentials');
@@ -79,7 +82,12 @@ export class AuthService {
       where: { tokenHash, revokedAt: null },
       include: { user: true },
     });
-    if (!stored || stored.expiresAt < new Date() || stored.user.deletedAt) {
+    if (
+      !stored ||
+      stored.expiresAt < new Date() ||
+      stored.user.deletedAt ||
+      stored.user.status !== UserStatus.ACTIVE
+    ) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 

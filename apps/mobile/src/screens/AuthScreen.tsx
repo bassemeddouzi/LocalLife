@@ -73,6 +73,16 @@ export function AuthScreen() {
       <Text style={styles.brand}>LocalLife</Text>
       <Text style={styles.sub}>{t('welcomeSub')}</Text>
       {mode === 'register' ? (
+        <Text style={styles.hint}>
+          Public registration creates a traveler (CLIENT) account. Guide and
+          Business accounts are created by Admin.
+        </Text>
+      ) : (
+        <Text style={styles.hint}>
+          Guide / Business: login with the credentials from Admin (no signup).
+        </Text>
+      )}
+      {mode === 'register' ? (
         <TextInput
           style={styles.input}
           placeholder={t('displayName')}
@@ -145,7 +155,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   brand: { fontSize: 34, fontWeight: '800', color: colors.brandDark },
-  sub: { color: colors.muted, marginBottom: 8 },
+  sub: { color: colors.muted, marginBottom: 4 },
+  hint: { color: colors.muted, fontSize: 13, marginBottom: 8, lineHeight: 18 },
   input: {
     borderWidth: 1,
     borderColor: colors.border,

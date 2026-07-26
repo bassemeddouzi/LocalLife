@@ -10,11 +10,14 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import { PlaceDetailScreen } from '../screens/PlaceDetailScreen';
 import type { MainTabParamList, RootStackParamList } from './types';
 import { colors } from '../theme';
+import { useAuth } from '../context/AuthContext';
+import { GuideNavigator } from './GuideNavigator';
+import { BusinessNavigator } from './BusinessNavigator';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-function Tabs() {
+function ClientTabs() {
   const { t } = useTranslation();
   return (
     <Tab.Navigator
@@ -53,12 +56,12 @@ function Tabs() {
   );
 }
 
-export function MainNavigator() {
+function ClientNavigator() {
   return (
     <Stack.Navigator>
       <Stack.Screen
         name="Tabs"
-        component={Tabs}
+        component={ClientTabs}
         options={{ headerShown: false }}
       />
       <Stack.Screen
@@ -68,4 +71,11 @@ export function MainNavigator() {
       />
     </Stack.Navigator>
   );
+}
+
+export function MainNavigator() {
+  const { user } = useAuth();
+  if (user?.role === 'GUIDE') return <GuideNavigator />;
+  if (user?.role === 'BUSINESS') return <BusinessNavigator />;
+  return <ClientNavigator />;
 }

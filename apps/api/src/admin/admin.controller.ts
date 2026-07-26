@@ -1,6 +1,8 @@
 import {
   Body,
+  ConflictException,
   Controller,
+  ForbiddenException,
   Get,
   NotFoundException,
   Param,
@@ -13,9 +15,14 @@ import {
   GuideApplicationStatus,
   ReportStatus,
   UserRole,
+  UserStatus,
   VerificationStatus,
 } from '@prisma/client';
+import * as argon2 from 'argon2';
+import { randomBytes } from 'crypto';
 import {
+  IsArray,
+  IsEmail,
   IsEnum,
   IsOptional,
   IsString,
@@ -43,6 +50,49 @@ class ResolveReportDto {
   @IsString()
   @MaxLength(1000)
   resolutionNotes?: string;
+}
+
+class CreateGuideDto {
+  @IsEmail()
+  email!: string;
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(80)
+  displayName!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  bio?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  languages?: string[];
+}
+
+class CreateBusinessDto {
+  @IsEmail()
+  email!: string;
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(80)
+  displayName!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  legalName?: string;
+
+  @IsOptional()
+  @IsEmail()
+  contactEmail?: string;
+}
+
+function tempPassword() {
+  return `Ll-${randomBytes(5).toString('base64url')}!`;
 }
 
 @Controller('v1/admin')
@@ -341,11 +391,15 @@ export class AdminController {
 
   @Get('users')
   @Auth(UserRole.ADMIN)
-  async listUsers(@Query('role') role?: string) {
+  async listUsers(
+    @Query('role') role?: string,
+    @Query('status') status?: string,
+  ) {
     return this.prisma.user.findMany({
       where: {
         deletedAt: null,
         ...(role ? { role: role as UserRole } : {}),
+        ...(status ? { status: status as UserStatus } : {}),
       },
       orderBy: { createdAt: 'desc' },
       take: 200,
@@ -358,12 +412,291 @@ export class AdminController {
         locale: true,
         createdAt: true,
         lastLoginAt: true,
-        guideProfile: { select: { id: true, status: true } },
+        guideProfile: { select: { id: true, status: true, languages: true } },
         businessProfile: {
           select: { id: true, displayName: true, verificationStatus: true },
         },
       },
     });
+  }
+
+  @Post('users/:id/suspend')
+  @Auth(UserRole.ADMIN)
+  async suspendUser(
+    @CurrentUser() admin: AuthUser,
+    @Param('id') id: string,
+    @Req() req: Request & { requestId?: string },
+  ) {
+    if (id === admin.id) {
+      throw new ForbiddenException('Cannot suspend yourself');
+    }
+    const before = await this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
+    });
+    if (!before) throw new NotFoundException('User not found');
+    if (before.role === UserRole.ADMIN) {
+      const activeAdmins = await this.prisma.user.count({
+        where: {
+          role: UserRole.ADMIN,
+          status: UserStatus.ACTIVE,
+          deletedAt: null,
+        },
+      });
+      if (activeAdmins <= 1) {
+        throw new ForbiddenException('Cannot suspend the last active admin');
+      }
+    }
+    const after = await this.prisma.user.update({
+      where: { id },
+      data: { status: UserStatus.SUSPENDED },
+    });
+    await this.prisma.refreshToken.updateMany({
+      where: { userId: id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    await this.audit.log({
+      actorUserId: admin.id,
+      action: 'user.suspend',
+      entityType: 'user',
+      entityId: id,
+      beforeJson: { status: before.status },
+      afterJson: { status: after.status },
+      requestId: req.requestId,
+    });
+    return {
+      id: after.id,
+      email: after.email,
+      role: after.role,
+      status: after.status,
+    };
+  }
+
+  @Post('users/:id/reactivate')
+  @Auth(UserRole.ADMIN)
+  async reactivateUser(
+    @CurrentUser() admin: AuthUser,
+    @Param('id') id: string,
+    @Req() req: Request & { requestId?: string },
+  ) {
+    const before = await this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
+    });
+    if (!before) throw new NotFoundException('User not found');
+    const after = await this.prisma.user.update({
+      where: { id },
+      data: { status: UserStatus.ACTIVE },
+    });
+    await this.audit.log({
+      actorUserId: admin.id,
+      action: 'user.reactivate',
+      entityType: 'user',
+      entityId: id,
+      beforeJson: { status: before.status },
+      afterJson: { status: after.status },
+      requestId: req.requestId,
+    });
+    return {
+      id: after.id,
+      email: after.email,
+      role: after.role,
+      status: after.status,
+    };
+  }
+
+  @Post('guides')
+  @Auth(UserRole.ADMIN)
+  async createGuide(
+    @CurrentUser() admin: AuthUser,
+    @Body() dto: CreateGuideDto,
+    @Req() req: Request & { requestId?: string },
+  ) {
+    const email = dto.email.trim().toLowerCase();
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing) throw new ConflictException('Email already registered');
+    const password = tempPassword();
+    const passwordHash = await argon2.hash(password);
+    const languages = dto.languages?.length ? dto.languages : ['en', 'fr'];
+    const user = await this.prisma.user.create({
+      data: {
+        email,
+        displayName: dto.displayName.trim(),
+        role: UserRole.GUIDE,
+        passwordHash,
+        status: UserStatus.ACTIVE,
+        preference: { create: {} },
+        guideProfile: {
+          create: {
+            bio: dto.bio,
+            languages,
+            status: GuideApplicationStatus.APPROVED,
+          },
+        },
+      },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        guideProfile: { select: { id: true, status: true, languages: true } },
+      },
+    });
+    await this.audit.log({
+      actorUserId: admin.id,
+      action: 'guide.create',
+      entityType: 'user',
+      entityId: user.id,
+      afterJson: { email: user.email, role: user.role },
+      requestId: req.requestId,
+    });
+    return { user, temporaryPassword: password };
+  }
+
+  @Get('guides/:id')
+  @Auth(UserRole.ADMIN)
+  async guideDetail(@Param('id') id: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id, role: UserRole.GUIDE, deletedAt: null },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        lastLoginAt: true,
+        guideProfile: true,
+      },
+    });
+    if (!user) throw new NotFoundException('Guide not found');
+    const places = await this.prisma.place.findMany({
+      where: { createdByUserId: id, deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: {
+        id: true,
+        name: true,
+        verificationStatus: true,
+        createdAt: true,
+      },
+    });
+    const placeCount = await this.prisma.place.count({
+      where: { createdByUserId: id, deletedAt: null },
+    });
+    return {
+      user,
+      historic: {
+        placeCount,
+        tipCount: 0,
+        recentPlaces: places,
+        recentTips: [] as unknown[],
+      },
+    };
+  }
+
+  @Post('businesses')
+  @Auth(UserRole.ADMIN)
+  async createBusiness(
+    @CurrentUser() admin: AuthUser,
+    @Body() dto: CreateBusinessDto,
+    @Req() req: Request & { requestId?: string },
+  ) {
+    const email = dto.email.trim().toLowerCase();
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing) throw new ConflictException('Email already registered');
+    const password = tempPassword();
+    const passwordHash = await argon2.hash(password);
+    const user = await this.prisma.user.create({
+      data: {
+        email,
+        displayName: dto.displayName.trim(),
+        role: UserRole.BUSINESS,
+        passwordHash,
+        status: UserStatus.ACTIVE,
+        preference: { create: {} },
+        businessProfile: {
+          create: {
+            displayName: dto.displayName.trim(),
+            legalName: dto.legalName,
+            contactEmail: dto.contactEmail ?? email,
+            verificationStatus: VerificationStatus.APPROVED,
+          },
+        },
+      },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        businessProfile: {
+          select: { id: true, displayName: true, verificationStatus: true },
+        },
+      },
+    });
+    await this.audit.log({
+      actorUserId: admin.id,
+      action: 'business.create',
+      entityType: 'user',
+      entityId: user.id,
+      afterJson: { email: user.email, role: user.role },
+      requestId: req.requestId,
+    });
+    return { user, temporaryPassword: password };
+  }
+
+  @Get('businesses/:id')
+  @Auth(UserRole.ADMIN)
+  async businessDetail(@Param('id') id: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id, role: UserRole.BUSINESS, deletedAt: null },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        lastLoginAt: true,
+        businessProfile: true,
+      },
+    });
+    if (!user?.businessProfile) {
+      throw new NotFoundException('Business not found');
+    }
+    const claims = await this.prisma.businessPlaceClaim.findMany({
+      where: { businessId: user.businessProfile.id },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        place: { select: { id: true, name: true } },
+      },
+    });
+    const ownedPlaces = await this.prisma.place.findMany({
+      where: {
+        ownedByBusinessId: user.businessProfile.id,
+        deletedAt: null,
+      },
+      take: 10,
+      orderBy: { updatedAt: 'desc' },
+      select: { id: true, name: true, verificationStatus: true },
+    });
+    return {
+      user,
+      historic: {
+        claimCount: await this.prisma.businessPlaceClaim.count({
+          where: { businessId: user.businessProfile.id },
+        }),
+        ownedPlaceCount: ownedPlaces.length,
+        recentClaims: claims,
+        ownedPlaces,
+      },
+    };
   }
 
   @Get('feature-flags')

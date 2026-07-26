@@ -259,7 +259,7 @@ describe('Core API Gate (e2e)', () => {
     void favId;
   });
 
-  it('guide apply → admin approve → guide submit tip', async () => {
+  it('admin creates guide + suspend blocks login; self-apply disabled', async () => {
     const applicantEmail = `guide_app_${suffix}@test.local`;
     const reg = await request(app.getHttpServer())
       .post('/v1/auth/register')
@@ -269,36 +269,36 @@ describe('Core API Gate (e2e)', () => {
         displayName: 'Wanna Guide',
       })
       .expect(201);
-    const token = (reg.body as AuthTokens).accessToken;
-
-    const applied = await request(app.getHttpServer())
-      .post('/v1/guides/apply')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ bio: 'Local expert', languages: ['fr', 'ar'] })
-      .expect(201);
-    const appId = (applied.body as { id: string; status: string }).id;
-    expect((applied.body as { status: string }).status).toBe('APPLIED');
+    const clientTok = (reg.body as AuthTokens).accessToken;
 
     await request(app.getHttpServer())
-      .post('/v1/guides/tips')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        cityId,
-        title: 'How to get around',
-        summary: 'Use louage and taxis',
-      })
+      .post('/v1/guides/apply')
+      .set('Authorization', `Bearer ${clientTok}`)
+      .send({ bio: 'Local expert', languages: ['fr', 'ar'] })
       .expect(403);
 
-    await request(app.getHttpServer())
-      .post(`/v1/admin/content/guide/${appId}/approve`)
+    const createdEmail = `guide_prov_${suffix}@test.local`;
+    const created = await request(app.getHttpServer())
+      .post('/v1/admin/guides')
       .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        email: createdEmail,
+        displayName: 'Provisioned Guide',
+        languages: ['en', 'fr'],
+      })
       .expect(201);
+    const body = created.body as {
+      user: { id: string; role: string };
+      temporaryPassword: string;
+    };
+    expect(body.user.role).toBe('GUIDE');
+    expect(body.temporaryPassword.length).toBeGreaterThan(8);
 
-    const login2 = await request(app.getHttpServer())
+    const loginGuide = await request(app.getHttpServer())
       .post('/v1/auth/login')
-      .send({ email: applicantEmail, password: 'TestPass123!' })
+      .send({ email: createdEmail, password: body.temporaryPassword })
       .expect(201);
-    const guideTok = (login2.body as AuthTokens).accessToken;
+    const guideTok = (loginGuide.body as AuthTokens).accessToken;
 
     const tip = await request(app.getHttpServer())
       .post('/v1/guides/tips')
@@ -313,13 +313,35 @@ describe('Core API Gate (e2e)', () => {
       (tip.body as { verificationStatus: string }).verificationStatus,
     ).toBe('PENDING');
 
+    await request(app.getHttpServer())
+      .post(`/v1/admin/users/${body.user.id}/suspend`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/v1/auth/login')
+      .send({ email: createdEmail, password: body.temporaryPassword })
+      .expect(401);
+
+    await request(app.getHttpServer())
+      .post(`/v1/admin/users/${body.user.id}/reactivate`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/v1/auth/login')
+      .send({ email: createdEmail, password: body.temporaryPassword })
+      .expect(201);
+
     await prisma.howToGuide.deleteMany({
       where: { id: (tip.body as { id: string }).id },
     });
     await prisma.guideProfile.deleteMany({
-      where: { user: { email: applicantEmail } },
+      where: { userId: body.user.id },
     });
-    await prisma.user.deleteMany({ where: { email: applicantEmail } });
+    await prisma.user.deleteMany({
+      where: { email: { in: [applicantEmail, createdEmail] } },
+    });
   });
 
   it('business claim → admin verify → limited edit', async () => {

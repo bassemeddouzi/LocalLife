@@ -98,6 +98,7 @@ Set `OPENROUTER_API_KEY` in `apps/api/.env` to use live OpenRouter; empty key us
 - EAS: [deploy/EAS-STAGING.md](./deploy/EAS-STAGING.md)
 - Beta ops: [deploy/BETA-OPS.md](./deploy/BETA-OPS.md)
 - Photo upgrade: [deploy/PHOTO-UPGRADE-PLAN.md](./deploy/PHOTO-UPGRADE-PLAN.md)
+- Guide/Business ops: [deploy/GUIDE-BUSINESS-OPS.md](./deploy/GUIDE-BUSINESS-OPS.md)
 
 ## Default seed users (after seed)
 

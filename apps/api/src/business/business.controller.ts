@@ -142,4 +142,23 @@ export class BusinessController {
       },
     });
   }
+
+  @Get('places')
+  @Auth(UserRole.BUSINESS, UserRole.ADMIN)
+  async myPlaces(@CurrentUser() user: AuthUser) {
+    if (user.role === UserRole.ADMIN) {
+      return [];
+    }
+    const profile = await this.getOrFailProfile(user.id);
+    return this.prisma.place.findMany({
+      where: { ownedByBusinessId: profile.id, deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        verificationStatus: true,
+        summary: true,
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
 }
