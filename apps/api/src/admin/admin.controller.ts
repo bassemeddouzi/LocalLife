@@ -977,8 +977,11 @@ export class AdminController {
         }),
         this.prisma.guideProfile.findMany({
           where: {
-            primaryDistrictId: { not: null },
             user: { deletedAt: null, role: UserRole.GUIDE },
+            OR: [
+              { primaryDistrictId: { not: null } },
+              { baseCityId: { not: null } },
+            ],
           },
           take: 500,
           select: {
@@ -991,7 +994,15 @@ export class AdminController {
                 status: true,
               },
             },
-            baseCity: { select: { id: true, name: true, slug: true } },
+            baseCity: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                latitude: true,
+                longitude: true,
+              },
+            },
             primaryDistrict: {
               select: {
                 id: true,
@@ -1025,20 +1036,33 @@ export class AdminController {
         };
       }),
       guides: guideProfiles
-        .filter((g) => g.primaryDistrict)
-        .map((g) => ({
-          userId: g.userId,
-          displayName: g.user.displayName,
-          email: g.user.email,
-          status: g.user.status,
-          latitude: Number(g.primaryDistrict!.latitude),
-          longitude: Number(g.primaryDistrict!.longitude),
-          districtId: g.primaryDistrict!.id,
-          districtName: g.primaryDistrict!.name,
-          cityId: g.baseCity?.id ?? null,
-          citySlug: g.baseCity?.slug ?? null,
-          cityName: g.baseCity?.name ?? null,
-        })),
+        .map((g) => {
+          const lat = g.primaryDistrict
+            ? Number(g.primaryDistrict.latitude)
+            : g.baseCity?.latitude != null
+              ? Number(g.baseCity.latitude)
+              : null;
+          const lng = g.primaryDistrict
+            ? Number(g.primaryDistrict.longitude)
+            : g.baseCity?.longitude != null
+              ? Number(g.baseCity.longitude)
+              : null;
+          if (lat == null || lng == null) return null;
+          return {
+            userId: g.userId,
+            displayName: g.user.displayName,
+            email: g.user.email,
+            status: g.user.status,
+            latitude: lat,
+            longitude: lng,
+            districtId: g.primaryDistrict?.id ?? null,
+            districtName: g.primaryDistrict?.name ?? 'Unassigned zone',
+            cityId: g.baseCity?.id ?? null,
+            citySlug: g.baseCity?.slug ?? null,
+            cityName: g.baseCity?.name ?? null,
+          };
+        })
+        .filter((g): g is NonNullable<typeof g> => g != null),
       guidePlaces: guidePlaces.map((p) => ({
         id: p.id,
         name: p.name,

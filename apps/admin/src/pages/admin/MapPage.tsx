@@ -60,8 +60,9 @@ export function MapPage() {
   const [mapError, setMapError] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
   const [showGuideBases, setShowGuideBases] = useState(true);
-  const [showGuides, setShowGuides] = useState(true);
+  const [showGuides, setShowGuides] = useState(false);
   const [showBusiness, setShowBusiness] = useState(true);
+  const [mapReady, setMapReady] = useState(false);
 
   useEffect(() => {
     void api<MapOverview>('/v1/admin/map-overview')
@@ -90,6 +91,7 @@ export function MapPage() {
     });
     map.addControl(new mapboxgl.NavigationControl({ visualizePitch: false }), 'top-right');
     mapRef.current = map;
+    setMapReady(false);
 
     map.on('error', (e) => {
       const msg = e.error?.message ?? 'Mapbox failed to load';
@@ -104,6 +106,7 @@ export function MapPage() {
 
     map.on('load', () => {
       setMapError('');
+      setMapReady(true);
       const features = data.activeCities
         .filter((c) => c.zone)
         .map((c) => ({
@@ -142,6 +145,7 @@ export function MapPage() {
     return () => {
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
+      setMapReady(false);
       map.remove();
       mapRef.current = null;
     };
@@ -149,7 +153,7 @@ export function MapPage() {
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !data) return;
+    if (!map || !mapReady || !data) return;
 
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
@@ -192,11 +196,11 @@ export function MapPage() {
         addMarker(
           g.longitude,
           g.latitude,
-          '#1d4ed8',
+          '#ea580c',
           g.displayName,
-          `Guide base · ${g.districtName}${g.citySlug ? ` · ${g.citySlug}` : ''} · ${g.email}`,
+          `Guide · ${g.districtName}${g.citySlug ? ` · ${g.citySlug}` : ''} · ${g.email}`,
           `base-${g.userId}`,
-          18,
+          20,
         );
       }
     }
@@ -217,14 +221,14 @@ export function MapPage() {
         addMarker(
           p.longitude,
           p.latitude,
-          '#b45309',
+          '#7c3aed',
           p.name,
           `Business · ${p.business?.displayName ?? 'unknown'} · ${p.verificationStatus}`,
           `b-${p.id}`,
         );
       }
     }
-  }, [data, showGuideBases, showGuides, showBusiness]);
+  }, [data, mapReady, showGuideBases, showGuides, showBusiness]);
 
   if (!TOKEN) {
     return (
@@ -270,14 +274,21 @@ export function MapPage() {
         <div>
           <h1>Map</h1>
           <p className="ll-page-sub">
-            Green overlay = ACTIVE service city. Blue pins = Guide home districts.
-            Teal / amber = Guide-submitted and Business-owned places.
+            Green overlay = ACTIVE service city. Orange pins = Guide home
+            districts. Teal = Guide places (off by default). Purple = Business
+            places.
           </p>
         </div>
       </div>
 
       {error ? <div style={ui.alertWarn}>{error}</div> : null}
       {mapError ? <div style={ui.alertWarn}>{mapError}</div> : null}
+      {data && (data.guides?.length ?? 0) === 0 ? (
+        <div style={ui.alertWarn}>
+          No Guide bases yet. Open Users → Guides → set a district (or reseed
+          API), then refresh this map.
+        </div>
+      ) : null}
 
       <div style={styles.toolbar}>
         <label style={styles.toggle}>
@@ -286,8 +297,8 @@ export function MapPage() {
             checked={showGuideBases}
             onChange={(e) => setShowGuideBases(e.target.checked)}
           />
-          <span className="ll-badge" style={{ background: '#dbeafe', color: '#1e40af' }}>
-            Guide bases ({data?.guides?.length ?? '…'})
+          <span className="ll-badge" style={{ background: '#ffedd5', color: '#c2410c' }}>
+            Guides ({data?.guides?.length ?? '…'})
           </span>
         </label>
         <label style={styles.toggle}>
@@ -306,7 +317,7 @@ export function MapPage() {
             checked={showBusiness}
             onChange={(e) => setShowBusiness(e.target.checked)}
           />
-          <span className="ll-badge" style={{ background: '#ffedd5', color: '#9a3412' }}>
+          <span className="ll-badge" style={{ background: '#ede9fe', color: '#5b21b6' }}>
             Business places ({data?.businessPlaces.length ?? '…'})
           </span>
         </label>
