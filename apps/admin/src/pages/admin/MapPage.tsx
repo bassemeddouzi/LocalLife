@@ -18,6 +18,16 @@ type MapOverview = {
       polygon: { type: 'Polygon'; coordinates: [number, number][][] };
     } | null;
   }>;
+  guides: Array<{
+    userId: string;
+    displayName: string;
+    email: string;
+    status: string;
+    latitude: number;
+    longitude: number;
+    districtName: string;
+    citySlug: string | null;
+  }>;
   guidePlaces: Array<{
     id: string;
     name: string;
@@ -36,7 +46,10 @@ type MapOverview = {
   }>;
 };
 
-const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined;
+const RAW_TOKEN = (import.meta.env.VITE_MAPBOX_TOKEN as string | undefined)?.trim();
+const TOKEN =
+  RAW_TOKEN && RAW_TOKEN.length > 0 ? RAW_TOKEN.replace(/^["']|["']$/g, '') : undefined;
+const TOKEN_OK = Boolean(TOKEN && /^pk\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.test(TOKEN));
 
 export function MapPage() {
   const mapNode = useRef<HTMLDivElement | null>(null);
@@ -44,7 +57,9 @@ export function MapPage() {
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const [data, setData] = useState<MapOverview | null>(null);
   const [error, setError] = useState('');
+  const [mapError, setMapError] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
+  const [showGuideBases, setShowGuideBases] = useState(true);
   const [showGuides, setShowGuides] = useState(true);
   const [showBusiness, setShowBusiness] = useState(true);
 
@@ -60,7 +75,7 @@ export function MapPage() {
   }, [data]);
 
   useEffect(() => {
-    if (!TOKEN || !mapNode.current || !data || mapRef.current) return;
+    if (!TOKEN_OK || !TOKEN || !mapNode.current || !data || mapRef.current) return;
 
     mapboxgl.accessToken = TOKEN;
     const center = primaryZone?.center ?? ([10.86, 33.81] as [number, number]);
@@ -76,7 +91,19 @@ export function MapPage() {
     map.addControl(new mapboxgl.NavigationControl({ visualizePitch: false }), 'top-right');
     mapRef.current = map;
 
+    map.on('error', (e) => {
+      const msg = e.error?.message ?? 'Mapbox failed to load';
+      const blocked =
+        /failed to fetch/i.test(msg) || /networkerror/i.test(msg) || /load failed/i.test(msg);
+      setMapError(
+        blocked
+          ? `${msg}. Often a browser extension blocks Mapbox (see injectScriptAdjust / adblock). Try Incognito with extensions off, or allow api.mapbox.com + events.mapbox.com.`
+          : msg,
+      );
+    });
+
     map.on('load', () => {
+      setMapError('');
       const features = data.activeCities
         .filter((c) => c.zone)
         .map((c) => ({
@@ -134,11 +161,14 @@ export function MapPage() {
       title: string,
       subtitle: string,
       key: string,
+      size = 14,
     ) => {
       const el = document.createElement('button');
       el.type = 'button';
       el.className = 'll-map-marker';
       el.style.background = color;
+      el.style.width = `${size}px`;
+      el.style.height = `${size}px`;
       el.title = title;
       el.addEventListener('click', (ev) => {
         ev.stopPropagation();
@@ -157,6 +187,19 @@ export function MapPage() {
       void key;
     };
 
+    if (showGuideBases) {
+      for (const g of data.guides ?? []) {
+        addMarker(
+          g.longitude,
+          g.latitude,
+          '#1d4ed8',
+          g.displayName,
+          `Guide base · ${g.districtName}${g.citySlug ? ` · ${g.citySlug}` : ''} · ${g.email}`,
+          `base-${g.userId}`,
+          18,
+        );
+      }
+    }
     if (showGuides) {
       for (const p of data.guidePlaces) {
         addMarker(
@@ -164,7 +207,7 @@ export function MapPage() {
           p.latitude,
           '#0d9488',
           p.name,
-          `Guide · ${p.guide?.displayName ?? 'unknown'} · ${p.verificationStatus}`,
+          `Guide place · ${p.guide?.displayName ?? 'unknown'} · ${p.verificationStatus}`,
           `g-${p.id}`,
         );
       }
@@ -181,7 +224,7 @@ export function MapPage() {
         );
       }
     }
-  }, [data, showGuides, showBusiness]);
+  }, [data, showGuideBases, showGuides, showBusiness]);
 
   if (!TOKEN) {
     return (
@@ -202,21 +245,51 @@ export function MapPage() {
     );
   }
 
+  if (!TOKEN_OK) {
+    return (
+      <div style={ui.pageWide}>
+        <div className="ll-page-head">
+          <div>
+            <h1>Map</h1>
+            <p className="ll-page-sub">Mapbox token format looks wrong.</p>
+          </div>
+        </div>
+        <div style={ui.alertWarn}>
+          Token must be a <strong>public</strong> token starting with{' '}
+          <code>pk.</code> (not <code>sk.</code>, not a JWT fragment). Copy the
+          full token from Mapbox → Account → Access tokens, redeploy Admin, then
+          hard-refresh.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={ui.pageWide}>
       <div className="ll-page-head">
         <div>
           <h1>Map</h1>
           <p className="ll-page-sub">
-            Green overlay = cities where the app is ACTIVE (Djerba today). Markers
-            are Guide-submitted and Business-owned places.
+            Green overlay = ACTIVE service city. Blue pins = Guide home districts.
+            Teal / amber = Guide-submitted and Business-owned places.
           </p>
         </div>
       </div>
 
       {error ? <div style={ui.alertWarn}>{error}</div> : null}
+      {mapError ? <div style={ui.alertWarn}>{mapError}</div> : null}
 
       <div style={styles.toolbar}>
+        <label style={styles.toggle}>
+          <input
+            type="checkbox"
+            checked={showGuideBases}
+            onChange={(e) => setShowGuideBases(e.target.checked)}
+          />
+          <span className="ll-badge" style={{ background: '#dbeafe', color: '#1e40af' }}>
+            Guide bases ({data?.guides?.length ?? '…'})
+          </span>
+        </label>
         <label style={styles.toggle}>
           <input
             type="checkbox"
@@ -254,8 +327,8 @@ export function MapPage() {
       ) : null}
 
       <p style={{ ...ui.muted, fontSize: '0.85rem', marginTop: '0.75rem' }}>
-        Guides/Business without places do not appear — profiles have no GPS yet.
-        Zone polygons are approximate ops overlays.
+        Guide bases use the Admin-assigned district centroid. Guides without a
+        district do not appear until you set their zone in Users.
       </p>
     </div>
   );

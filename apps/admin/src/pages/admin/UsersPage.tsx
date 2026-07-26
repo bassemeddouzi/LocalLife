@@ -10,7 +10,15 @@ type UserRow = {
   status: string;
   lastLoginAt?: string | null;
   createdAt: string;
-  guideProfile?: { id: string; status: string; languages?: string[] } | null;
+  guideProfile?: {
+    id: string;
+    status: string;
+    languages?: string[];
+    baseCityId?: string | null;
+    primaryDistrictId?: string | null;
+    baseCity?: { id: string; name: string; slug: string } | null;
+    primaryDistrict?: { id: string; name: string; slug: string } | null;
+  } | null;
   businessProfile?: {
     id: string;
     displayName: string;
@@ -19,6 +27,19 @@ type UserRow = {
 };
 
 type Tab = 'CLIENT' | 'GUIDE' | 'BUSINESS';
+
+type District = {
+  id: string;
+  cityId: string;
+  name: string;
+  slug: string;
+};
+
+type CityOption = {
+  id: string;
+  name: string;
+  slug: string;
+};
 
 type GuideDetail = {
   user: UserRow;
@@ -73,11 +94,53 @@ export function UsersPage() {
 
   const [guideEmail, setGuideEmail] = useState('');
   const [guideName, setGuideName] = useState('');
+  const [guideCityId, setGuideCityId] = useState('');
+  const [guideDistrictId, setGuideDistrictId] = useState('');
+  const [cities, setCities] = useState<CityOption[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [editDistrictId, setEditDistrictId] = useState('');
   const [bizEmail, setBizEmail] = useState('');
   const [bizName, setBizName] = useState('');
 
   const [detailGuide, setDetailGuide] = useState<GuideDetail | null>(null);
   const [detailBiz, setDetailBiz] = useState<BusinessDetail | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const countries = await api<Array<{ id: string; iso2: string }>>(
+          '/v1/countries',
+          { auth: false },
+        );
+        const tn = countries.find((c) => c.iso2 === 'TN');
+        if (!tn) return;
+        const list = await api<CityOption[]>(`/v1/countries/${tn.id}/cities`, {
+          auth: false,
+        });
+        setCities(list);
+        const djerba = list.find((c) => c.slug === 'djerba');
+        if (djerba) setGuideCityId(djerba.id);
+      } catch (e) {
+        setMsg(e instanceof Error ? e.message : String(e));
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!guideCityId) {
+      setDistricts([]);
+      setGuideDistrictId('');
+      return;
+    }
+    void api<District[]>(`/v1/cities/${guideCityId}/districts`, { auth: false })
+      .then((rows) => {
+        setDistricts(rows);
+        setGuideDistrictId((prev) =>
+          rows.some((d) => d.id === prev) ? prev : (rows[0]?.id ?? ''),
+        );
+      })
+      .catch((e) => setMsg(e instanceof Error ? e.message : String(e)));
+  }, [guideCityId]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -122,6 +185,8 @@ export function UsersPage() {
             email: guideEmail,
             displayName: guideName,
             languages: ['en', 'fr', 'ar'],
+            baseCityId: guideCityId,
+            primaryDistrictId: guideDistrictId,
           }),
         },
       );
@@ -160,10 +225,36 @@ export function UsersPage() {
 
   async function openGuide(id: string) {
     try {
-      setDetailGuide(await api<GuideDetail>(`/v1/admin/guides/${id}`));
+      const detail = await api<GuideDetail>(`/v1/admin/guides/${id}`);
+      setDetailGuide(detail);
       setDetailBiz(null);
+      setEditDistrictId(detail.user.guideProfile?.primaryDistrictId ?? '');
+      if (detail.user.guideProfile?.baseCityId) {
+        setGuideCityId(detail.user.guideProfile.baseCityId);
+      }
     } catch (e) {
       setMsg(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function saveGuideDistrict(e: FormEvent) {
+    e.preventDefault();
+    if (!detailGuide) return;
+    try {
+      const cityId =
+        detailGuide.user.guideProfile?.baseCityId ?? guideCityId;
+      await api(`/v1/admin/guides/${detailGuide.user.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          baseCityId: cityId,
+          primaryDistrictId: editDistrictId,
+        }),
+      });
+      setMsg('Guide zone updated');
+      await openGuide(detailGuide.user.id);
+      await load();
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : String(err));
     }
   }
 
@@ -250,8 +341,41 @@ export function UsersPage() {
                 onChange={(e) => setGuideName(e.target.value)}
               />
             </label>
+            <label>
+              City
+              <select
+                required
+                style={ui.input}
+                value={guideCityId}
+                onChange={(e) => setGuideCityId(e.target.value)}
+              >
+                <option value="">Select city…</option>
+                {cities.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              District / zone
+              <select
+                required
+                style={ui.input}
+                value={guideDistrictId}
+                onChange={(e) => setGuideDistrictId(e.target.value)}
+                disabled={!districts.length}
+              >
+                <option value="">Select district…</option>
+                {districts.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-          <button type="submit" style={ui.btn}>
+          <button type="submit" style={ui.btn} disabled={!guideCityId || !guideDistrictId}>
             Create Guide
           </button>
         </form>
@@ -296,6 +420,7 @@ export function UsersPage() {
             <tr>
               <th>Name</th>
               <th>Email</th>
+              <th>Zone</th>
               <th>Status</th>
               <th>Last login</th>
               <th>Actions</th>
@@ -304,13 +429,13 @@ export function UsersPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={5} className="ll-empty">
+                <td colSpan={6} className="ll-empty">
                   Loading…
                 </td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={5} className="ll-empty">
+                <td colSpan={6} className="ll-empty">
                   No {TAB_LABEL[tab].toLowerCase()} yet
                 </td>
               </tr>
@@ -321,6 +446,14 @@ export function UsersPage() {
                     <strong>{u.displayName}</strong>
                   </td>
                   <td style={{ color: 'var(--ll-muted)' }}>{u.email}</td>
+                  <td style={{ color: 'var(--ll-muted)', fontSize: '0.85rem' }}>
+                    {tab === 'GUIDE'
+                      ? u.guideProfile?.primaryDistrict?.name ??
+                        (u.guideProfile?.baseCity?.name
+                          ? `${u.guideProfile.baseCity.name} · unassigned`
+                          : '—')
+                      : '—'}
+                  </td>
                   <td>
                     <StatusBadge status={u.status} />
                   </td>
@@ -386,6 +519,40 @@ export function UsersPage() {
               Close
             </button>
           </div>
+          <p style={ui.muted}>
+            Zone:{' '}
+            <strong>
+              {detailGuide.user.guideProfile?.primaryDistrict?.name ??
+                'Unassigned'}
+            </strong>
+            {detailGuide.user.guideProfile?.baseCity
+              ? ` · ${detailGuide.user.guideProfile.baseCity.name}`
+              : ''}
+          </p>
+          <form onSubmit={saveGuideDistrict} style={{ marginBottom: '1rem' }}>
+            <label>
+              Update district
+              <select
+                style={ui.input}
+                value={editDistrictId}
+                onChange={(e) => setEditDistrictId(e.target.value)}
+              >
+                <option value="">Select…</option>
+                {districts.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="submit"
+              style={ui.btn}
+              disabled={!editDistrictId}
+            >
+              Save zone
+            </button>
+          </form>
           <p style={ui.muted}>
             Places submitted: <strong>{detailGuide.historic.placeCount}</strong>{' '}
             · Tips: <strong>{detailGuide.historic.tipCount}</strong>

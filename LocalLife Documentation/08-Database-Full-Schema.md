@@ -218,7 +218,18 @@ id, regionId nullable, countryId, name, slug, latitude, longitude, status, isFea
 
 ### 6.4 District / Neighborhood
 
-Standard parented geo entities with optional centroid coordinates.
+**District** (MVP — implemented):
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid | |
+| cityId | uuid | FK City |
+| name | text | e.g. Midoun |
+| slug | text | unique per city |
+| latitude, longitude | decimal | centroid for maps |
+| createdAt, updatedAt | timestamptz | |
+
+**Neighborhood** / **GeoBoundary**: later (optional polygons).
 
 ### 6.5 Hierarchy example
 
@@ -226,11 +237,11 @@ Standard parented geo entities with optional centroid coordinates.
 Tunisia
  └── Medenine (region)
       └── Djerba (city)
-           └── Midoun (district/neighborhood)
+           └── Midoun (district)
                 └── Place: Café XYZ
 ```
 
-**Indexes:** city(status), place(cityId), geo lookups on lat/lng.
+**Indexes:** city(status), place(cityId), district(cityId), geo lookups on lat/lng.
 
 ---
 
@@ -301,7 +312,20 @@ placeId, locale, name, summary, description — unique(placeId, locale)
 
 ### GuideProfile
 
-id, userId unique, bio, languages[], citiesExpertise (M2M), status (APPLIED...), portfolio links, trustScore
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid | |
+| userId | uuid unique | |
+| bio | text nullable | |
+| languages | text[] | |
+| status | GuideApplicationStatus | APPLIED… |
+| portfolioUrl | text nullable | |
+| trustScore | decimal nullable | |
+| baseCityId | uuid nullable | FK City — where the Guide operates |
+| primaryDistrictId | uuid nullable | FK District — zone inside city (Admin map pin = district centroid) |
+| createdAt, updatedAt | | |
+
+**Later:** `citiesExpertise` M2M (multi-city Guides). Admin map shows one pin per Guide from `primaryDistrict` centroid until device GPS exists.
 
 ### BusinessProfile
 

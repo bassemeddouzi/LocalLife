@@ -349,9 +349,28 @@ model City {
   howToGuides      HowToGuide[]
   localRules       LocalRule[]
   conversations    Conversation[]
+  districts        District[]
+  guideProfilesBase GuideProfile[] @relation("GuideBaseCity")
 
   @@unique([countryId, slug])
   @@index([status])
+}
+
+model District {
+  id        String   @id @default(uuid())
+  cityId    String
+  city      City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  name      String
+  slug      String
+  latitude  Decimal  @db.Decimal(10, 7)
+  longitude Decimal  @db.Decimal(10, 7)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guideProfiles GuideProfile[] @relation("GuidePrimaryDistrict")
+
+  @@unique([cityId, slug])
+  @@index([cityId])
 }
 
 model Category {
@@ -435,16 +454,23 @@ model PlaceHour {
 }
 
 model GuideProfile {
-  id          String                 @id @default(uuid())
-  userId      String                 @unique
-  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bio         String?
-  languages   String[]
-  status      GuideApplicationStatus @default(APPLIED)
-  trustScore  Decimal?               @db.Decimal(5, 2)
-  portfolioUrl String?
-  createdAt   DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt
+  id                 String                 @id @default(uuid())
+  userId             String                 @unique
+  user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio                String?
+  languages          String[]
+  status             GuideApplicationStatus @default(APPLIED)
+  trustScore         Decimal?               @db.Decimal(5, 2)
+  portfolioUrl       String?
+  baseCityId         String?
+  baseCity           City?                  @relation("GuideBaseCity", fields: [baseCityId], references: [id])
+  primaryDistrictId  String?
+  primaryDistrict    District?              @relation("GuidePrimaryDistrict", fields: [primaryDistrictId], references: [id])
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  @@index([baseCityId])
+  @@index([primaryDistrictId])
 }
 
 model BusinessProfile {

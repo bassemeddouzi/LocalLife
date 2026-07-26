@@ -21,6 +21,12 @@ API already live: `https://locallife-production.up.railway.app`
    - **No** `DATABASE_URL` on Admin
 
 > Vite bakes `VITE_*` at **build** time. After adding/changing the token → **Redeploy** Admin (clear build cache if the map still says token missing).
+
+### Mapbox troubleshooting (`Failed to fetch`)
+1. Token must start with **`pk.`** (full public token). `sk.` will not work in the browser.
+2. Stack mentions `injectScriptAdjust.js` → a **browser extension** is wrapping `fetch` and blocking Mapbox. Test in **Incognito** with extensions disabled, or allow `api.mapbox.com` / `events.mapbox.com`.
+3. If the token has URL restrictions, add your Admin Railway domain + `http://localhost:5173`.
+4. After fixing env → Redeploy Admin → hard refresh (Ctrl+Shift+R).
 7. Start Command: leave **empty** (nginx CMD from Dockerfile).
 8. **Redeploy** (Clear build cache if needed).
 9. **Networking → Generate Domain** if not done.

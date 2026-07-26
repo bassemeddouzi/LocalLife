@@ -83,6 +83,38 @@ export class GeoController {
     return rows;
   }
 
+  @Get('cities/:id/districts')
+  async listDistricts(@Param('id') cityId: string) {
+    const key = `geo:districts:${cityId}`;
+    const cached = this.cache.get<unknown>(key);
+    if (cached) return cached;
+
+    const city = await this.prisma.city.findFirst({
+      where: { id: cityId, status: GeoStatus.ACTIVE },
+    });
+    if (!city) throw new NotFoundException('City not found');
+
+    const rows = await this.prisma.district.findMany({
+      where: { cityId },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        cityId: true,
+        name: true,
+        slug: true,
+        latitude: true,
+        longitude: true,
+      },
+    });
+    const mapped = rows.map((d) => ({
+      ...d,
+      latitude: Number(d.latitude),
+      longitude: Number(d.longitude),
+    }));
+    this.cache.set(key, mapped, 120_000);
+    return mapped;
+  }
+
   @Get('cities/:id')
   async getCity(@Param('id') id: string) {
     const key = `geo:city:${id}`;

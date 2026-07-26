@@ -4,8 +4,10 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  BadRequestException,
   NotFoundException,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -26,6 +28,7 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -62,6 +65,12 @@ class CreateGuideDto {
   @MaxLength(80)
   displayName!: string;
 
+  @IsUUID()
+  baseCityId!: string;
+
+  @IsUUID()
+  primaryDistrictId!: string;
+
   @IsOptional()
   @IsString()
   @MaxLength(2000)
@@ -71,6 +80,26 @@ class CreateGuideDto {
   @IsArray()
   @IsString({ each: true })
   languages?: string[];
+}
+
+class UpdateGuideDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  bio?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  languages?: string[];
+
+  @IsOptional()
+  @IsUUID()
+  baseCityId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  primaryDistrictId?: string;
 }
 
 class CreateBusinessDto {
@@ -413,7 +442,19 @@ export class AdminController {
         locale: true,
         createdAt: true,
         lastLoginAt: true,
-        guideProfile: { select: { id: true, status: true, languages: true } },
+        guideProfile: {
+          select: {
+            id: true,
+            status: true,
+            languages: true,
+            baseCityId: true,
+            primaryDistrictId: true,
+            baseCity: { select: { id: true, name: true, slug: true } },
+            primaryDistrict: {
+              select: { id: true, name: true, slug: true },
+            },
+          },
+        },
         businessProfile: {
           select: { id: true, displayName: true, verificationStatus: true },
         },
@@ -514,6 +555,20 @@ export class AdminController {
     const email = dto.email.trim().toLowerCase();
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new ConflictException('Email already registered');
+
+    const district = await this.prisma.district.findUnique({
+      where: { id: dto.primaryDistrictId },
+    });
+    if (!district || district.cityId !== dto.baseCityId) {
+      throw new BadRequestException(
+        'primaryDistrictId must belong to baseCityId',
+      );
+    }
+    const city = await this.prisma.city.findUnique({
+      where: { id: dto.baseCityId },
+    });
+    if (!city) throw new BadRequestException('baseCityId not found');
+
     const password = tempPassword();
     const passwordHash = await argon2.hash(password);
     const languages = dto.languages?.length ? dto.languages : ['en', 'fr'];
@@ -530,6 +585,8 @@ export class AdminController {
             bio: dto.bio,
             languages,
             status: GuideApplicationStatus.APPROVED,
+            baseCityId: dto.baseCityId,
+            primaryDistrictId: dto.primaryDistrictId,
           },
         },
       },
@@ -540,7 +597,19 @@ export class AdminController {
         role: true,
         status: true,
         createdAt: true,
-        guideProfile: { select: { id: true, status: true, languages: true } },
+        guideProfile: {
+          select: {
+            id: true,
+            status: true,
+            languages: true,
+            baseCityId: true,
+            primaryDistrictId: true,
+            baseCity: { select: { id: true, name: true, slug: true } },
+            primaryDistrict: {
+              select: { id: true, name: true, slug: true },
+            },
+          },
+        },
       },
     });
     await this.audit.log({
@@ -548,10 +617,102 @@ export class AdminController {
       action: 'guide.create',
       entityType: 'user',
       entityId: user.id,
-      afterJson: { email: user.email, role: user.role },
+      afterJson: {
+        email: user.email,
+        role: user.role,
+        baseCityId: dto.baseCityId,
+        primaryDistrictId: dto.primaryDistrictId,
+      },
       requestId: req.requestId,
     });
     return { user, temporaryPassword: password };
+  }
+
+  @Patch('guides/:id')
+  @Auth(UserRole.ADMIN)
+  async updateGuide(
+    @CurrentUser() admin: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateGuideDto,
+    @Req() req: Request & { requestId?: string },
+  ) {
+    const user = await this.prisma.user.findFirst({
+      where: { id, role: UserRole.GUIDE, deletedAt: null },
+      include: { guideProfile: true },
+    });
+    if (!user?.guideProfile) throw new NotFoundException('Guide not found');
+
+    const nextCityId = dto.baseCityId ?? user.guideProfile.baseCityId;
+    const nextDistrictId =
+      dto.primaryDistrictId ?? user.guideProfile.primaryDistrictId;
+
+    if (dto.baseCityId || dto.primaryDistrictId) {
+      if (!nextCityId || !nextDistrictId) {
+        throw new BadRequestException(
+          'baseCityId and primaryDistrictId are both required when updating location',
+        );
+      }
+      const district = await this.prisma.district.findUnique({
+        where: { id: nextDistrictId },
+      });
+      if (!district || district.cityId !== nextCityId) {
+        throw new BadRequestException(
+          'primaryDistrictId must belong to baseCityId',
+        );
+      }
+    }
+
+    const before = user.guideProfile;
+    const after = await this.prisma.guideProfile.update({
+      where: { userId: id },
+      data: {
+        ...(dto.bio !== undefined ? { bio: dto.bio } : {}),
+        ...(dto.languages !== undefined ? { languages: dto.languages } : {}),
+        ...(dto.baseCityId !== undefined
+          ? { baseCityId: dto.baseCityId }
+          : {}),
+        ...(dto.primaryDistrictId !== undefined
+          ? { primaryDistrictId: dto.primaryDistrictId }
+          : {}),
+      },
+      include: {
+        baseCity: { select: { id: true, name: true, slug: true } },
+        primaryDistrict: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            latitude: true,
+            longitude: true,
+          },
+        },
+      },
+    });
+    await this.audit.log({
+      actorUserId: admin.id,
+      action: 'guide.update',
+      entityType: 'guide',
+      entityId: id,
+      beforeJson: {
+        baseCityId: before.baseCityId,
+        primaryDistrictId: before.primaryDistrictId,
+      },
+      afterJson: {
+        baseCityId: after.baseCityId,
+        primaryDistrictId: after.primaryDistrictId,
+      },
+      requestId: req.requestId,
+    });
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role,
+        status: user.status,
+        guideProfile: after,
+      },
+    };
   }
 
   @Get('guides/:id')
@@ -567,7 +728,20 @@ export class AdminController {
         status: true,
         createdAt: true,
         lastLoginAt: true,
-        guideProfile: true,
+        guideProfile: {
+          include: {
+            baseCity: { select: { id: true, name: true, slug: true } },
+            primaryDistrict: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                latitude: true,
+                longitude: true,
+              },
+            },
+          },
+        },
       },
     });
     if (!user) throw new NotFoundException('Guide not found');
@@ -747,60 +921,89 @@ export class AdminController {
   @Get('map-overview')
   @Auth(UserRole.ADMIN)
   async mapOverview() {
-    const [cities, guidePlaces, businessPlaces] = await Promise.all([
-      this.prisma.city.findMany({
-        where: { status: 'ACTIVE' },
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          latitude: true,
-          longitude: true,
-          status: true,
-        },
-        orderBy: { name: 'asc' },
-      }),
-      this.prisma.place.findMany({
-        where: {
-          deletedAt: null,
-          createdBy: { role: UserRole.GUIDE },
-        },
-        take: 500,
-        orderBy: { updatedAt: 'desc' },
-        select: {
-          id: true,
-          name: true,
-          latitude: true,
-          longitude: true,
-          verificationStatus: true,
-          cityId: true,
-          createdByUserId: true,
-          createdBy: {
-            select: { id: true, displayName: true, email: true },
+    const [cities, guidePlaces, businessPlaces, guideProfiles] =
+      await Promise.all([
+        this.prisma.city.findMany({
+          where: { status: 'ACTIVE' },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            latitude: true,
+            longitude: true,
+            status: true,
           },
-        },
-      }),
-      this.prisma.place.findMany({
-        where: {
-          deletedAt: null,
-          ownedByBusinessId: { not: null },
-        },
-        take: 500,
-        orderBy: { updatedAt: 'desc' },
-        select: {
-          id: true,
-          name: true,
-          latitude: true,
-          longitude: true,
-          verificationStatus: true,
-          cityId: true,
-          ownedByBusinessId: true,
-          ownedByBusiness: {
-            select: { id: true, displayName: true },
+          orderBy: { name: 'asc' },
+        }),
+        this.prisma.place.findMany({
+          where: {
+            deletedAt: null,
+            createdBy: { role: UserRole.GUIDE },
           },
-        },
-      }),
-    ]);
+          take: 500,
+          orderBy: { updatedAt: 'desc' },
+          select: {
+            id: true,
+            name: true,
+            latitude: true,
+            longitude: true,
+            verificationStatus: true,
+            cityId: true,
+            createdByUserId: true,
+            createdBy: {
+              select: { id: true, displayName: true, email: true },
+            },
+          },
+        }),
+        this.prisma.place.findMany({
+          where: {
+            deletedAt: null,
+            ownedByBusinessId: { not: null },
+          },
+          take: 500,
+          orderBy: { updatedAt: 'desc' },
+          select: {
+            id: true,
+            name: true,
+            latitude: true,
+            longitude: true,
+            verificationStatus: true,
+            cityId: true,
+            ownedByBusinessId: true,
+            ownedByBusiness: {
+              select: { id: true, displayName: true },
+            },
+          },
+        }),
+        this.prisma.guideProfile.findMany({
+          where: {
+            primaryDistrictId: { not: null },
+            user: { deletedAt: null, role: UserRole.GUIDE },
+          },
+          take: 500,
+          select: {
+            userId: true,
+            user: {
+              select: {
+                id: true,
+                displayName: true,
+                email: true,
+                status: true,
+              },
+            },
+            baseCity: { select: { id: true, name: true, slug: true } },
+            primaryDistrict: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                latitude: true,
+                longitude: true,
+              },
+            },
+          },
+        }),
+      ]);
 
     return {
       activeCities: cities.map((c) => {
@@ -821,6 +1024,21 @@ export class AdminController {
             : null,
         };
       }),
+      guides: guideProfiles
+        .filter((g) => g.primaryDistrict)
+        .map((g) => ({
+          userId: g.userId,
+          displayName: g.user.displayName,
+          email: g.user.email,
+          status: g.user.status,
+          latitude: Number(g.primaryDistrict!.latitude),
+          longitude: Number(g.primaryDistrict!.longitude),
+          districtId: g.primaryDistrict!.id,
+          districtName: g.primaryDistrict!.name,
+          cityId: g.baseCity?.id ?? null,
+          citySlug: g.baseCity?.slug ?? null,
+          cityName: g.baseCity?.name ?? null,
+        })),
       guidePlaces: guidePlaces.map((p) => ({
         id: p.id,
         name: p.name,

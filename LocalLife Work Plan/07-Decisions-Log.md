@@ -1,7 +1,7 @@
 # 07 — Decisions Log (Locked)
 
 **Document type:** Binding product/engineering decisions  
-**Version:** 1.2  
+**Version:** 1.3  
 **Date locked:** 2026-07-24 (updated 2026-07-26)  
 **Status:** LOCKED for MVP — change only with explicit re-decision
 
@@ -43,7 +43,7 @@
 - Local knowledge: transport, arrival, rules + Djerba seed
 - **Guide**: Admin-provisioned accounts; contribute content (moderated); login on same mobile app (**no** public Guide registration)
 - **Business**: Admin-provisioned accounts; claim/profile basics (**no payments**); same mobile app
-- **Admin web**: moderation, **Clients / Guides / Business** lists, Add Guide/Business, Block/Reactivate, light historic, AI model switch, feature flags, seed tools
+- **Admin web**: moderation, **Clients / Guides / Business** lists, Add Guide/Business (Guide requires city + district), Block/Reactivate, light historic, **Map** (service zone + Guide base pins + places), AI model switch, feature flags, seed tools
 - Multi-language UI + content path: **EN + FR + AR** (RTL for AR)
 - Limited offline cache
 - Analytics + crash reporting + rate limits
@@ -85,6 +85,7 @@
 | Early photos | **Fake/placeholder images first** |
 | Real Djerba media | Uploaded later via **Guide account** |
 | Guide from day one | **Admin creates** Guide (or seed `guide@locallife.local`) — no self-serve Guide signup by default (`FF_GUIDE_SELF_APPLY=false`) |
+| Guide ops location | **Admin-assigned** `baseCityId` + `primaryDistrictId` (district centroid on Admin map). New Guides require both. |
 
 ---
 

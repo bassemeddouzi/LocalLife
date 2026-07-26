@@ -17,6 +17,7 @@ describe('Core API Gate (e2e)', () => {
   let prisma: PrismaService;
   const suffix = Date.now();
   let cityId = '';
+  let districtId = '';
   let countryId = '';
   let categoryId = '';
   let adminToken = '';
@@ -56,6 +57,14 @@ describe('Core API Gate (e2e)', () => {
     countryId = country.id;
     cityId = city.id;
     categoryId = category.id;
+
+    const district = await prisma.district.findFirst({
+      where: { cityId: city.id, slug: 'houmt-souk' },
+    });
+    if (!district) {
+      throw new Error('Seed missing Djerba districts — run prisma:seed');
+    }
+    districtId = district.id;
 
     const adminLogin = await request(app.getHttpServer())
       .post('/v1/auth/login')
@@ -174,11 +183,17 @@ describe('Core API Gate (e2e)', () => {
     const mapBody = mapOverview.body as {
       activeCities: Array<{ slug: string; zone: unknown }>;
       guidePlaces: Array<{ id: string }>;
+      guides: Array<{ userId: string; districtName: string }>;
     };
     expect(mapBody.activeCities.some((c) => c.slug === 'djerba' && c.zone)).toBe(
       true,
     );
     expect(mapBody.guidePlaces.some((p) => p.id === pendingPlaceId)).toBe(true);
+    expect(
+      mapBody.guides.some(
+        (g) => g.districtName === 'Houmt Souk' || g.userId.length > 0,
+      ),
+    ).toBe(true);
 
     await request(app.getHttpServer())
       .post(`/v1/admin/content/place/${pendingPlaceId}/approve`)
@@ -290,6 +305,15 @@ describe('Core API Gate (e2e)', () => {
       .send({ bio: 'Local expert', languages: ['fr', 'ar'] })
       .expect(403);
 
+    const districts = await request(app.getHttpServer())
+      .get(`/v1/cities/${cityId}/districts`)
+      .expect(200);
+    expect(
+      (districts.body as Array<{ slug: string }>).some(
+        (d) => d.slug === 'midoun',
+      ),
+    ).toBe(true);
+
     const createdEmail = `guide_prov_${suffix}@test.local`;
     const created = await request(app.getHttpServer())
       .post('/v1/admin/guides')
@@ -298,14 +322,31 @@ describe('Core API Gate (e2e)', () => {
         email: createdEmail,
         displayName: 'Provisioned Guide',
         languages: ['en', 'fr'],
+        baseCityId: cityId,
+        primaryDistrictId: districtId,
       })
       .expect(201);
     const body = created.body as {
-      user: { id: string; role: string };
+      user: {
+        id: string;
+        role: string;
+        guideProfile?: { primaryDistrictId?: string };
+      };
       temporaryPassword: string;
     };
     expect(body.user.role).toBe('GUIDE');
     expect(body.temporaryPassword.length).toBeGreaterThan(8);
+    expect(body.user.guideProfile?.primaryDistrictId).toBe(districtId);
+
+    const mapAfter = await request(app.getHttpServer())
+      .get('/v1/admin/map-overview')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(
+      (
+        mapAfter.body as { guides: Array<{ userId: string }> }
+      ).guides.some((g) => g.userId === body.user.id),
+    ).toBe(true);
 
     const loginGuide = await request(app.getHttpServer())
       .post('/v1/auth/login')

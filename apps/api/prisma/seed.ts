@@ -160,6 +160,42 @@ async function main() {
     },
   });
 
+  const DJERBA_DISTRICTS: Array<{
+    slug: string;
+    name: string;
+    latitude: number;
+    longitude: number;
+  }> = [
+    { slug: 'houmt-souk', name: 'Houmt Souk', latitude: 33.8758, longitude: 10.8575 },
+    { slug: 'midoun', name: 'Midoun', latitude: 33.8081, longitude: 11.0014 },
+    { slug: 'ajim', name: 'Ajim', latitude: 33.724, longitude: 10.752 },
+    { slug: 'aghir', name: 'Aghir', latitude: 33.748, longitude: 11.013 },
+    { slug: 'erriadh', name: 'Erriadh', latitude: 33.8206, longitude: 10.8539 },
+    { slug: 'guellala', name: 'Guellala', latitude: 33.728, longitude: 10.86 },
+  ];
+
+  for (const d of DJERBA_DISTRICTS) {
+    await prisma.district.upsert({
+      where: { cityId_slug: { cityId: city.id, slug: d.slug } },
+      update: {
+        name: d.name,
+        latitude: d.latitude,
+        longitude: d.longitude,
+      },
+      create: {
+        cityId: city.id,
+        name: d.name,
+        slug: d.slug,
+        latitude: d.latitude,
+        longitude: d.longitude,
+      },
+    });
+  }
+
+  const houmtSouk = await prisma.district.findUnique({
+    where: { cityId_slug: { cityId: city.id, slug: 'houmt-souk' } },
+  });
+
   await prisma.city.upsert({
     where: { countryId_slug: { countryId: country.id, slug: 'draft-city' } },
     update: { status: 'DISABLED' },
@@ -187,13 +223,25 @@ async function main() {
 
   await prisma.guideProfile.upsert({
     where: { userId: guide.id },
-    update: { status: 'APPROVED' },
+    update: {
+      status: 'APPROVED',
+      baseCityId: city.id,
+      primaryDistrictId: houmtSouk?.id,
+    },
     create: {
       userId: guide.id,
       bio: 'Seed guide account for Djerba content',
       languages: ['en', 'fr', 'ar'],
       status: 'APPROVED',
+      baseCityId: city.id,
+      primaryDistrictId: houmtSouk?.id,
     },
+  });
+
+  // Backfill any existing Guides missing a base city (district stays optional until Admin edits)
+  await prisma.guideProfile.updateMany({
+    where: { baseCityId: null },
+    data: { baseCityId: city.id },
   });
 
   // Clear dependent rows that block place deletes from prior packs
