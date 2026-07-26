@@ -51,10 +51,40 @@ type GuideDetail = {
   historic: {
     placeCount: number;
     tipCount: number;
+    eventCount: number;
+    experienceCount: number;
+    businessApplicationCount: number;
     recentPlaces: Array<{
       id: string;
       name: string;
       verificationStatus: string;
+      createdAt: string;
+    }>;
+    recentTips: Array<{
+      id: string;
+      title: string;
+      categoryKey: string | null;
+      verificationStatus: string;
+      createdAt: string;
+    }>;
+    recentEvents: Array<{
+      id: string;
+      title: string;
+      verificationStatus: string;
+      startsAt: string;
+      createdAt: string;
+    }>;
+    recentExperiences: Array<{
+      id: string;
+      title: string;
+      verificationStatus: string;
+      createdAt: string;
+    }>;
+    recentBusinessApplications: Array<{
+      id: string;
+      email: string;
+      displayName: string;
+      status: string;
       createdAt: string;
     }>;
   };
@@ -758,16 +788,43 @@ export function UsersPage() {
             </button>
           </form>
           <p style={ui.muted}>
-            Places submitted: <strong>{detailGuide.historic.placeCount}</strong>{' '}
-            · Tips: <strong>{detailGuide.historic.tipCount}</strong>
+            Places: <strong>{detailGuide.historic.placeCount}</strong> · Tips:{' '}
+            <strong>{detailGuide.historic.tipCount}</strong> · Events:{' '}
+            <strong>{detailGuide.historic.eventCount}</strong> · Experiences:{' '}
+            <strong>{detailGuide.historic.experienceCount}</strong> · Business
+            apps:{' '}
+            <strong>{detailGuide.historic.businessApplicationCount}</strong>
           </p>
-          <ul style={{ margin: 0, paddingLeft: '1.1rem' }}>
-            {detailGuide.historic.recentPlaces.map((p) => (
-              <li key={p.id}>
-                {p.name} · {p.verificationStatus}
-              </li>
-            ))}
-          </ul>
+          <HistoricList
+            title="Places"
+            items={detailGuide.historic.recentPlaces.map(
+              (p) => `${p.name} · ${p.verificationStatus}`,
+            )}
+          />
+          <HistoricList
+            title="Tips"
+            items={(detailGuide.historic.recentTips ?? []).map(
+              (t) => `${t.title} · ${t.verificationStatus}`,
+            )}
+          />
+          <HistoricList
+            title="Events"
+            items={(detailGuide.historic.recentEvents ?? []).map(
+              (e) => `${e.title} · ${e.verificationStatus}`,
+            )}
+          />
+          <HistoricList
+            title="Experiences"
+            items={(detailGuide.historic.recentExperiences ?? []).map(
+              (e) => `${e.title} · ${e.verificationStatus}`,
+            )}
+          />
+          <HistoricList
+            title="Business applications"
+            items={(detailGuide.historic.recentBusinessApplications ?? []).map(
+              (a) => `${a.displayName} (${a.email}) · ${a.status}`,
+            )}
+          />
         </div>
       ) : null}
 
@@ -838,6 +895,23 @@ export function UsersPage() {
           </ul>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function HistoricList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div style={{ marginTop: '0.85rem' }}>
+      <strong style={{ fontSize: '0.9rem' }}>{title}</strong>
+      {items.length === 0 ? (
+        <p style={{ ...ui.muted, margin: '0.25rem 0 0' }}>None yet</p>
+      ) : (
+        <ul style={{ margin: '0.25rem 0 0', paddingLeft: '1.1rem' }}>
+          {items.map((text) => (
+            <li key={text}>{text}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

@@ -127,8 +127,11 @@ export function GuideShell() {
       eyebrow="Guide portal"
       links={[
         { to: '/guide', label: 'Home', end: true },
-        { to: '/guide/submit-place', label: 'Submit place' },
-        { to: '/guide/submit-tip', label: 'Submit tip' },
+        { to: '/guide/submit-place', label: 'Place' },
+        { to: '/guide/submit-tip', label: 'Tip' },
+        { to: '/guide/submit-event', label: 'Event' },
+        { to: '/guide/submit-experience', label: 'Experience' },
+        { to: '/guide/propose-business', label: 'Business' },
         { to: '/guide/submissions', label: 'Submissions' },
         { to: '/support', label: 'Support' },
       ]}

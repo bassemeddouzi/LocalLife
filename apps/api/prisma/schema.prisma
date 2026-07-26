@@ -49,6 +49,12 @@ enum ClaimStatus {
   REJECTED
 }
 
+enum BusinessApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum GuideApplicationStatus {
   APPLIED
   UNDER_REVIEW
@@ -256,6 +262,11 @@ model User {
   conversations   Conversation[]
   auditLogs       AuditLog[]
   placesCreated   Place[]         @relation("PlaceCreatedBy")
+  howToGuidesCreated HowToGuide[] @relation("HowToCreatedBy")
+  eventsCreated   Event[]         @relation("EventCreatedBy")
+  experiencesCreated Experience[] @relation("ExperienceCreatedBy")
+  localRulesCreated LocalRule[]   @relation("LocalRuleCreatedBy")
+  businessApplicationsProposed BusinessApplication[] @relation("BusinessApplicationProposedBy")
 }
 
 model UserPreference {
@@ -352,6 +363,7 @@ model City {
   districts        District[]
   guideProfilesBase GuideProfile[] @relation("GuideBaseCity")
   businessProfilesBase BusinessProfile[] @relation("BusinessBaseCity")
+  businessApplications BusinessApplication[]
 
   @@unique([countryId, slug])
   @@index([status])
@@ -370,6 +382,7 @@ model District {
 
   guideProfiles    GuideProfile[]    @relation("GuidePrimaryDistrict")
   businessProfiles BusinessProfile[] @relation("BusinessPrimaryDistrict")
+  businessApplications BusinessApplication[]
 
   @@unique([cityId, slug])
   @@index([cityId])
@@ -515,6 +528,28 @@ model BusinessPlaceClaim {
   @@unique([businessId, placeId])
 }
 
+model BusinessApplication {
+  id                   String                    @id @default(uuid())
+  proposedByGuideUserId String
+  proposedByGuide      User                      @relation("BusinessApplicationProposedBy", fields: [proposedByGuideUserId], references: [id], onDelete: Cascade)
+  email                String
+  displayName          String
+  baseCityId           String
+  baseCity             City                      @relation(fields: [baseCityId], references: [id])
+  primaryDistrictId    String
+  primaryDistrict      District                  @relation(fields: [primaryDistrictId], references: [id])
+  note                 String?
+  status               BusinessApplicationStatus @default(PENDING)
+  reviewedByAdminId    String?
+  reviewedAt           DateTime?
+  createdBusinessUserId String?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([proposedByGuideUserId])
+}
+
 model Review {
   id        String             @id @default(uuid())
   placeId   String
@@ -642,6 +677,8 @@ model LocalRule {
   sourceUrl          String?
   verificationStatus VerificationStatus @default(DRAFT)
   lastReviewedAt     DateTime?
+  createdByUserId    String?
+  createdBy          User?              @relation("LocalRuleCreatedBy", fields: [createdByUserId], references: [id])
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
@@ -675,6 +712,8 @@ model HowToGuide {
   categoryKey        String?
   verificationStatus VerificationStatus @default(DRAFT)
   lastReviewedAt     DateTime?
+  createdByUserId    String?
+  createdBy          User?              @relation("HowToCreatedBy", fields: [createdByUserId], references: [id])
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
@@ -721,6 +760,8 @@ model Event {
   verificationStatus VerificationStatus @default(DRAFT)
   isSponsored        Boolean            @default(false)
   metadata           Json?
+  createdByUserId    String?
+  createdBy          User?              @relation("EventCreatedBy", fields: [createdByUserId], references: [id])
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   deletedAt          DateTime?
@@ -739,6 +780,8 @@ model Experience {
   priceLevel         PriceLevel?
   audience           String?
   verificationStatus VerificationStatus @default(DRAFT)
+  createdByUserId    String?
+  createdBy          User?              @relation("ExperienceCreatedBy", fields: [createdByUserId], references: [id])
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   deletedAt          DateTime?

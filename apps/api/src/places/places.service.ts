@@ -183,6 +183,22 @@ export class PlacesService {
       slug = `${baseSlug}-${i++}`;
     }
 
+    let primaryCategoryId = dto.primaryCategoryId;
+    if (!primaryCategoryId && dto.categoryKey) {
+      const cat = await this.prisma.category.findUnique({
+        where: { key: dto.categoryKey },
+      });
+      if (!cat) {
+        throw new NotFoundException(`Unknown categoryKey: ${dto.categoryKey}`);
+      }
+      primaryCategoryId = cat.id;
+    }
+
+    const metadata =
+      dto.attributes && Object.keys(dto.attributes).length > 0
+        ? { attributes: dto.attributes }
+        : undefined;
+
     const place = await this.prisma.place.create({
       data: {
         cityId: dto.cityId,
@@ -196,7 +212,8 @@ export class PlacesService {
         phone: dto.phone,
         website: dto.website,
         priceLevel: dto.priceLevel,
-        primaryCategoryId: dto.primaryCategoryId,
+        primaryCategoryId,
+        metadata: metadata ?? undefined,
         verificationStatus: status,
         sourceType:
           user.role === UserRole.GUIDE

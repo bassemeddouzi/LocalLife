@@ -3,7 +3,7 @@
 **Priority:** P0
 
 ### Objective
-Let Guide account (including owner’s guide account) submit Djerba content from UI.
+Let Guide account (including owner’s guide account) submit Djerba zone knowledge from UI.
 
 ### Takes
 - Approved GUIDE user
@@ -14,13 +14,20 @@ Let Guide account (including owner’s guide account) submit Djerba content from
 | Flow | Takes | Gives |
 | --- | --- | --- |
 | Guide home | auth | submission dashboard |
-| Add/edit place tip/experience | forms | PENDING content |
+| Submit place | category + lat/lng + optional attributes | PENDING place (map pin after approve) |
+| Submit tip | title + summary + categoryKey | PENDING HowToGuide |
+| Submit event | title + schedule + optional place | PENDING event |
+| Submit experience | title + summary + optional steps | PENDING experience |
+| Propose Business | email + name + city/district | PENDING BusinessApplication |
+| Track submissions | auth | places / tips / events / experiences / applications |
 | Upload photo | file | placeholder or real image URL |
-| Track status | ids | pending/approved/rejected |
 
 ### Notes
 - Fake photos acceptable now
 - Real Djerba photos replace later using same flows
+- Pins on map = approved places (events use place coords when linked)
+- Transport how-to / danger / camping / rental = tips + LocalRules (Wave 2 for Guide LocalRule writes)
 
 ### Done when
-- [ ] Guide can submit and see moderation outcomes without API client
+- [x] Guide can submit place/tip/event/experience and see moderation outcomes
+- [x] Guide can propose Business; Admin approves in moderation

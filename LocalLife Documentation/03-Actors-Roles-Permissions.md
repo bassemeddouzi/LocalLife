@@ -102,13 +102,14 @@ Only `APPROVED` guides can publish (or submit for approval, depending on policy)
 
 ### 4.3 Capabilities
 
-- Maintain guide profile (bio, languages, city expertise)
-- Add/edit places (submit for approval or direct publish if trusted tier)
-- Add local tips / how-to content / arrival steps contributions
-- Create experiences
-- Suggest hidden places
-- Update outdated information
-- (Future) Answer community questions
+- Maintain guide profile (bio, languages, city expertise, assigned city/district)
+- Add/edit places with category + practical attributes (submit for approval)
+- Add local tips / how-to content
+- Create events and experiences (moderated)
+- Suggest hidden / practical places (repair, budget shops, beaches, sunset spots, etc.)
+- Propose new **Business** accounts for Admin approval
+- Update outdated information (own submissions)
+- (Future / Wave 2) LocalRule + transport note contributions; answer community questions
 
 ### 4.4 Permissions matrix (Guide)
 
@@ -116,8 +117,10 @@ Only `APPROVED` guides can publish (or submit for approval, depending on policy)
 | --- | --- | --- | --- | --- |
 | Guide profile (own) | Yes | Yes | Yes | No |
 | Places (own submissions) | Yes | Yes | Yes (while pending/owned) | Soft |
-| Local tips / guides | Yes | Yes | Own | Soft |
+| Local tips / HowTo | Yes | Yes | Own | Soft |
+| Events (own submissions) | Yes | Yes | Own | Soft |
 | Experiences | Yes | Yes | Own | Soft |
+| Business applications | Propose | Own | No | No |
 | Reviews | As client | As client | As client | As client |
 | Admin settings | No | No | No | No |
 
@@ -171,8 +174,9 @@ Internal operators responsible for quality, safety, and configuration.
 
 ### 6.2 Capabilities
 
-- Approve/reject guides and business claims
-- Validate places, events, experiences, local rules, arrival guides
+- Approve/reject guides, business claims, and **Guide-proposed Business applications**
+- Validate places, events, experiences, tips, local rules, arrival guides
+- View full Guide historic (all contribution types)
 - Moderate reports and reviews
 - Manage categories, countries, cities
 - Manage sponsorship inventory

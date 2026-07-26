@@ -51,7 +51,7 @@ Country, Region, City, District, Neighborhood, GeoBoundary (optional)
 Category, Tag, Place, PlaceCategory, PlaceTag, PlacePhoto, PlaceHour, PlaceAttribute, PlaceTranslation
 
 ### People & orgs
-GuideProfile, BusinessProfile, BusinessPlaceClaim
+GuideProfile, BusinessProfile, BusinessPlaceClaim, BusinessApplication
 
 ### Social proof
 Review, ReviewPhoto, Favorite, Report
@@ -433,7 +433,21 @@ id, cityId, airportPlaceId nullable, title, summary, estimatedTotalTimeMin, audi
 
 ### HowToGuide
 
-id, cityId nullable, countryId nullable, title, summary, category key, verificationStatus
+id, cityId nullable, countryId nullable, title, summary, category key, verificationStatus, **createdByUserId** (Guide/Admin attribution)
+
+### Event / Experience
+
+Same as prior + **createdByUserId** for Guide submissions and Admin historic.
+
+### LocalRule
+
+… + **createdByUserId** (Guide-authored safety/housing notes in seed; Guide write API Wave 2).
+
+### BusinessApplication
+
+id, proposedByGuideUserId, email, displayName, baseCityId, primaryDistrictId, note, status (`PENDING|APPROVED|REJECTED`), reviewedByAdminId, reviewedAt, createdBusinessUserId
+
+Guide proposes → Admin approve creates Business user + temp password.
 
 ### GuideStep
 

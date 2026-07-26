@@ -24,6 +24,11 @@ const CATEGORIES: Array<{
   { key: 'nightlife', name: 'Nightlife', icon: 'moon', sortOrder: 120 },
   { key: 'transport_hubs', name: 'Transport', icon: 'bus', sortOrder: 130 },
   { key: 'banks', name: 'Banks & ATMs', icon: 'bank', sortOrder: 140 },
+  { key: 'phone_repair', name: 'Phone repair', icon: 'phone', sortOrder: 150 },
+  { key: 'car_repair', name: 'Car repair', icon: 'wrench', sortOrder: 160 },
+  { key: 'budget_shops', name: 'Budget shops', icon: 'tag', sortOrder: 170 },
+  { key: 'camping', name: 'Camping', icon: 'tent', sortOrder: 180 },
+  { key: 'car_rental', name: 'Car rental', icon: 'car', sortOrder: 190 },
 ];
 
 async function main() {
@@ -315,6 +320,7 @@ async function main() {
     countryId: country.id,
     cityId: city.id,
     adminUserId: admin.id,
+    guideUserId: guide.id,
     cats,
   });
 

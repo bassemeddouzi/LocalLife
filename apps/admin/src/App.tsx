@@ -19,6 +19,9 @@ import {
   GuideHomePage,
   GuideSubmitPlacePage,
   GuideSubmitTipPage,
+  GuideSubmitEventPage,
+  GuideSubmitExperiencePage,
+  GuideProposeBusinessPage,
   GuideSubmissionsPage,
 } from './pages/guide/GuidePages';
 import {
@@ -92,6 +95,15 @@ export default function App() {
           <Route index element={<GuideHomePage />} />
           <Route path="submit-place" element={<GuideSubmitPlacePage />} />
           <Route path="submit-tip" element={<GuideSubmitTipPage />} />
+          <Route path="submit-event" element={<GuideSubmitEventPage />} />
+          <Route
+            path="submit-experience"
+            element={<GuideSubmitExperiencePage />}
+          />
+          <Route
+            path="propose-business"
+            element={<GuideProposeBusinessPage />}
+          />
           <Route path="submissions" element={<GuideSubmissionsPage />} />
         </Route>
 

@@ -60,7 +60,8 @@ MVP must also satisfy non-functional requirements in [20 — NFRs](./20-Non-Func
 
 - Client fully supported
 - Admin supported
-- Guide/Business can exist in schema; UI may be limited
+- Guide: zone-knowledge portal (places, tips, events, experiences, propose Business) — moderated
+- Business: claim/profile portal; accounts via Admin create or Guide propose + Admin approve
 
 ### 3.2 Profile & preferences
 

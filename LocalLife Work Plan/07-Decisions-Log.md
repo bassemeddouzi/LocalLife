@@ -1,7 +1,7 @@
 # 07 — Decisions Log (Locked)
 
 **Document type:** Binding product/engineering decisions  
-**Version:** 1.3  
+**Version:** 1.4  
 **Date locked:** 2026-07-24 (updated 2026-07-26)  
 **Status:** LOCKED for MVP — change only with explicit re-decision
 
@@ -41,9 +41,9 @@
 - Grounded AI chat (RAG) for Client
 - Places, events, experiences, reviews, favorites, reports
 - Local knowledge: transport, arrival, rules + Djerba seed
-- **Guide**: Admin-provisioned accounts; contribute content (moderated); login on same mobile app (**no** public Guide registration)
-- **Business**: Admin-provisioned accounts; claim/profile basics (**no payments**); same mobile app
-- **Admin web**: moderation, **Clients / Guides / Business** lists, Add Guide/Business (Guide requires city + district), Block/Reactivate, light historic, **Map** (service zone + Guide base pins + places), AI model switch, feature flags, seed tools
+- **Guide**: Admin-provisioned accounts; zone-knowledge contributor (places + attributes, tips, events, experiences — all moderated); may **propose Business** applications; login on same mobile app (**no** public Guide registration)
+- **Business**: Admin-provisioned **or** Guide-proposed then Admin-approved; claim/profile basics (**no payments**); same mobile app
+- **Admin web**: moderation (incl. events/experiences/business applications), **Clients / Guides / Business** lists, Add Guide/Business (Guide requires city + district), Block/Reactivate, **full Guide historic** (all contribution types), **Map** (service zone + Guide/Business base pins + places), AI model switch, feature flags, seed tools
 - Multi-language UI + content path: **EN + FR + AR** (RTL for AR)
 - Limited offline cache
 - Analytics + crash reporting + rate limits
@@ -95,10 +95,20 @@
 | Topic | Decision |
 | --- | --- |
 | Public register (mobile) | **CLIENT only** |
-| Guide / Business create | **Admin web only** (temp password shown once; email mailer later) |
+| Guide create | **Admin web only** (temp password shown once; email mailer later) |
+| Business create | **Admin web** *or* **Guide proposes** (`BusinessApplication` PENDING) → Admin approve creates account + temp password |
+| Guide contributions | Places (category + metadata attributes), tips (`HowToGuide`), events, experiences — all `PENDING` until Admin approve; geo entities appear on map when approved |
+| Guide historic (Admin) | Counts + recent lists for places, tips, events, experiences, business applications |
+| Map pins vs knowledge | Pins = places (and events with place coords). Transport how-to / danger / rental / camping guidance = tips + LocalRules + place metadata — not custom polygons in MVP |
 | Block | `UserStatus.SUSPENDED` — cannot login; approved content stays until separately unpublished |
 | Admin create/delete in UI | **Out of MVP** (seed / script only) |
 | Admin accounts | Seed `admin@locallife.local` |
+
+### Wave 2+ (documented, not MVP Wave 1)
+
+- Guide submit/update LocalRule + light Transport hub/route suggestions
+- District theme tags without polygons; full mobile Guide form parity
+- Aggregated “best of” rankings, neighborhood fit scores, trusted Guide direct-publish tier
 
 ---
 

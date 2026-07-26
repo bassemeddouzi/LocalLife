@@ -23,9 +23,15 @@ type CatMap = Record<string, string>;
 
 export async function seedDjerbaP0(
   prisma: PrismaClient,
-  opts: { countryId: string; cityId: string; adminUserId: string; cats: CatMap },
+  opts: {
+    countryId: string;
+    cityId: string;
+    adminUserId: string;
+    guideUserId: string;
+    cats: CatMap;
+  },
 ) {
-  const { countryId, cityId, adminUserId, cats } = opts;
+  const { countryId, cityId, adminUserId, guideUserId, cats } = opts;
 
   // Wipe previous fake pack content (idempotent reseed)
   await prisma.guideStep.deleteMany({
@@ -731,6 +737,137 @@ export async function seedDjerbaP0(
     places[def.slug] = place.id;
   }
 
+  // Guide zone-knowledge pack (attributed to seed Guide — fake demo content)
+  const guidePlaceDefs: Array<{
+    slug: string;
+    name: string;
+    summary: string;
+    categoryKey: string;
+    lat: number;
+    lng: number;
+    priceLevel?: PriceLevel;
+    attributes?: Record<string, string | boolean>;
+  }> = [
+    {
+      slug: 'guide-phone-repair-hs',
+      name: 'Houmt Souk Phone Fix (demo)',
+      summary: 'Guide tip: cheap screen + battery swaps near the souk.',
+      categoryKey: 'phone_repair',
+      lat: 33.8762,
+      lng: 10.8568,
+      priceLevel: PriceLevel.BUDGET,
+      attributes: { budgetFriendly: true, zoneHint: 'local' },
+    },
+    {
+      slug: 'guide-car-repair-midoun',
+      name: 'Midoun Garage Express (demo)',
+      summary: 'Guide tip: reliable puncture + oil change for island roads.',
+      categoryKey: 'car_repair',
+      lat: 33.8075,
+      lng: 11.0,
+      priceLevel: PriceLevel.MODERATE,
+      attributes: { zoneHint: 'local' },
+    },
+    {
+      slug: 'guide-budget-shop-hs',
+      name: 'Souk Bargain Lane (demo)',
+      summary: 'Guide tip: cheapest basics and souvenirs — bargain politely.',
+      categoryKey: 'budget_shops',
+      lat: 33.8755,
+      lng: 10.8575,
+      priceLevel: PriceLevel.BUDGET,
+      attributes: { budgetFriendly: true, zoneHint: 'tourist' },
+    },
+    {
+      slug: 'guide-camping-aghir',
+      name: 'Aghir Quiet Camping Spot (demo)',
+      summary: 'Guide tip: informal camping-friendly stretch — ask locals, leave no trace.',
+      categoryKey: 'camping',
+      lat: 33.73,
+      lng: 11.02,
+      priceLevel: PriceLevel.BUDGET,
+      attributes: { zoneHint: 'quiet', safetyNote: 'Avoid isolated nights alone' },
+    },
+    {
+      slug: 'guide-car-rental-airport',
+      name: 'Airport Car Rental Desk (demo)',
+      summary: 'Guide tip: compare desk rates; check insurance for dirt roads.',
+      categoryKey: 'car_rental',
+      lat: 33.8745,
+      lng: 10.776,
+      priceLevel: PriceLevel.MODERATE,
+      attributes: { zoneHint: 'tourist' },
+    },
+    {
+      slug: 'guide-sunset-ras-rmal',
+      name: 'Ras Rmal Sunset Walk (demo)',
+      summary: 'Guide tip: soft light and flamingo season — best near sunset.',
+      categoryKey: 'activities',
+      lat: 33.89,
+      lng: 10.88,
+      priceLevel: PriceLevel.FREE,
+      attributes: { bestTimeOfDay: 'sunset', zoneHint: 'tourist' },
+    },
+    {
+      slug: 'guide-beach-sejoumi-rated',
+      name: 'Sidi Mahrez Beach Pick (demo)',
+      summary: 'Guide rating: top east-coast beach for swimming when wind is calm.',
+      categoryKey: 'beaches',
+      lat: 33.86,
+      lng: 11.05,
+      priceLevel: PriceLevel.FREE,
+      attributes: { bestTimeOfDay: 'morning', zoneHint: 'tourist' },
+    },
+    {
+      slug: 'guide-rental-midoun-zone',
+      name: 'Midoun Longer-Stay Rentals Area (demo)',
+      summary: 'Guide tip: apartments for weekly stays — quieter than hotel strip.',
+      categoryKey: 'hotels',
+      lat: 33.805,
+      lng: 10.995,
+      priceLevel: PriceLevel.MODERATE,
+      attributes: { zoneHint: 'local' },
+    },
+  ];
+
+  for (const def of guidePlaceDefs) {
+    const catId = cats[def.categoryKey];
+    if (!catId) throw new Error(`Missing category ${def.categoryKey}`);
+    const place = await prisma.place.create({
+      data: {
+        cityId,
+        slug: def.slug,
+        name: def.name,
+        summary: def.summary,
+        description: `${def.summary} (seed pack ${PACK} — Guide demo content).`,
+        latitude: def.lat,
+        longitude: def.lng,
+        priceLevel: def.priceLevel,
+        primaryCategoryId: catId,
+        verificationStatus: VerificationStatus.APPROVED,
+        sourceType: SourceType.GUIDE_VERIFIED,
+        createdByUserId: guideUserId,
+        publishedAt: REVIEWED,
+        metadata: {
+          pack: PACK,
+          attributes: def.attributes ?? {},
+          tip: 'Guide-authored fake seed — replace with real local notes.',
+        },
+        photos: {
+          create: [
+            {
+              url: `${PHOTO}&slug=${def.slug}`,
+              caption: `${def.name} placeholder`,
+              status: VerificationStatus.APPROVED,
+              uploadedByUserId: guideUserId,
+            },
+          ],
+        },
+      },
+    });
+    places[def.slug] = place.id;
+  }
+
   // Pending place to prove it does not leak publicly
   await prisma.place.create({
     data: {
@@ -1125,6 +1262,7 @@ export async function seedDjerbaP0(
       categoryKey: 'SURVIVAL_48H',
       verificationStatus: VerificationStatus.APPROVED,
       lastReviewedAt: REVIEWED,
+      createdByUserId: adminUserId,
     },
   });
 
@@ -1446,9 +1584,148 @@ export async function seedDjerbaP0(
         categoryId: cats[e.cat],
         priceLevel: e.price ?? PriceLevel.FREE,
         verificationStatus: VerificationStatus.APPROVED,
+        createdByUserId: adminUserId,
       },
     });
   }
+
+  // Guide-authored tips, rules, events, experience (zone knowledge demo)
+  await prisma.howToGuide.create({
+    data: {
+      cityId,
+      countryId,
+      title: 'How taxis & louage work in Djerba (Guide tip)',
+      summary:
+        'Airport official rank; in town agree fare or use meter; louage for island hops from known ranks.',
+      categoryKey: 'transport_tip',
+      verificationStatus: VerificationStatus.APPROVED,
+      lastReviewedAt: REVIEWED,
+      createdByUserId: guideUserId,
+    },
+  });
+  await prisma.howToGuide.create({
+    data: {
+      cityId,
+      countryId,
+      title: 'Where to rent longer-term in Midoun (Guide tip)',
+      summary:
+        'Look slightly inland from the hotel strip for quieter weekly apartments; always check summer noise.',
+      categoryKey: 'rental_tip',
+      verificationStatus: VerificationStatus.APPROVED,
+      lastReviewedAt: REVIEWED,
+      createdByUserId: guideUserId,
+    },
+  });
+
+  await prisma.localRule.create({
+    data: {
+      scope: RuleScope.CITY,
+      countryId,
+      cityId,
+      category: RuleCategory.SAFETY,
+      severity: RuleSeverity.IMPORTANT,
+      audience: 'ALL',
+      title: 'Isolated beaches after dark (Guide note)',
+      summary:
+        'Avoid empty stretches alone after sunset — prefer lit promenades and known hotel zones.',
+      details: 'Demo Guide LocalRule — not a map polygon; surfaces in AI/rules.',
+      sourceType: SourceType.GUIDE_VERIFIED,
+      verificationStatus: VerificationStatus.APPROVED,
+      lastReviewedAt: REVIEWED,
+      createdByUserId: guideUserId,
+    },
+  });
+  await prisma.localRule.create({
+    data: {
+      scope: RuleScope.CITY,
+      countryId,
+      cityId,
+      category: RuleCategory.HOUSING,
+      severity: RuleSeverity.INFO,
+      audience: 'ALL',
+      title: 'Camping etiquette (Guide note)',
+      summary:
+        'Ask permission, carry water out, avoid dunes with nesting birds, never block beach access.',
+      sourceType: SourceType.GUIDE_VERIFIED,
+      verificationStatus: VerificationStatus.APPROVED,
+      lastReviewedAt: REVIEWED,
+      createdByUserId: guideUserId,
+    },
+  });
+
+  const guideEvents = [
+    {
+      title: 'Guide sunset walk — Ras Rmal (demo)',
+      summary: 'Meet for golden-hour walk; flamingo season varies.',
+      placeSlug: 'guide-sunset-ras-rmal',
+      start: '2026-08-15T17:30:00.000Z',
+      end: '2026-08-15T19:00:00.000Z',
+      cat: 'activities',
+    },
+    {
+      title: 'Guide budget souk hour (demo)',
+      summary: 'Cheap finds + bargaining tips with the Guide.',
+      placeSlug: 'guide-budget-shop-hs',
+      start: '2026-08-16T10:00:00.000Z',
+      end: '2026-08-16T11:30:00.000Z',
+      cat: 'budget_shops',
+    },
+    {
+      title: 'Guide beach pick day — Sidi Mahrez (demo)',
+      summary: 'Calm-water morning swim recommendation.',
+      placeSlug: 'guide-beach-sejoumi-rated',
+      start: '2026-08-17T09:00:00.000Z',
+      end: '2026-08-17T12:00:00.000Z',
+      cat: 'beaches',
+    },
+  ];
+  for (const e of guideEvents) {
+    await prisma.event.create({
+      data: {
+        cityId,
+        placeId: places[e.placeSlug],
+        title: e.title,
+        summary: e.summary,
+        startsAt: new Date(e.start),
+        endsAt: new Date(e.end),
+        categoryId: cats[e.cat],
+        priceLevel: PriceLevel.FREE,
+        verificationStatus: VerificationStatus.APPROVED,
+        createdByUserId: guideUserId,
+        metadata: { pack: PACK, guideDemo: true },
+      },
+    });
+  }
+
+  await prisma.experience.create({
+    data: {
+      cityId,
+      title: 'Guide golden-hour micro trip (demo)',
+      summary: 'Budget souk stop then Ras Rmal sunset — Guide curated.',
+      description: 'Fake Guide experience for historic + AI grounding tests.',
+      durationMin: 180,
+      priceLevel: PriceLevel.BUDGET,
+      audience: 'TOURIST',
+      verificationStatus: VerificationStatus.APPROVED,
+      createdByUserId: guideUserId,
+      steps: {
+        create: [
+          {
+            stepOrder: 1,
+            title: 'Bargain lane',
+            placeId: places['guide-budget-shop-hs'],
+            estimatedTimeMin: 45,
+          },
+          {
+            stepOrder: 2,
+            title: 'Sunset walk',
+            placeId: places['guide-sunset-ras-rmal'],
+            estimatedTimeMin: 90,
+          },
+        ],
+      },
+    },
+  });
 
   const experiences: Array<{
     title: string;
@@ -1533,6 +1810,7 @@ export async function seedDjerbaP0(
         priceLevel: xp.price,
         audience: 'ALL',
         verificationStatus: VerificationStatus.APPROVED,
+        createdByUserId: adminUserId,
       },
     });
     await prisma.experienceStep.createMany({

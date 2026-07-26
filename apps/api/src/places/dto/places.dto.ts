@@ -2,6 +2,7 @@ import {
   IsBoolean,
   IsEnum,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -114,6 +115,15 @@ export class CreatePlaceDto {
   @IsOptional()
   @IsUUID()
   primaryCategoryId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  categoryKey?: string;
+
+  @IsOptional()
+  @IsObject()
+  attributes?: Record<string, string | number | boolean>;
 
   @IsOptional()
   @IsEnum(VerificationStatus)

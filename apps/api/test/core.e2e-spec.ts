@@ -441,4 +441,74 @@ describe('Core API Gate (e2e)', () => {
 
     void profile;
   });
+
+  it('guide submits event → admin approve; guide proposes business → admin approve', async () => {
+    const event = await request(app.getHttpServer())
+      .post('/v1/guides/events')
+      .set('Authorization', `Bearer ${guideToken}`)
+      .send({
+        cityId,
+        title: `Guide event ${suffix}`,
+        summary: 'Sunset walk demo event from Guide',
+        startsAt: new Date(Date.now() + 86400000).toISOString(),
+      })
+      .expect(201);
+    const eventId = (event.body as { id: string }).id;
+    expect((event.body as { verificationStatus: string }).verificationStatus).toBe(
+      'PENDING',
+    );
+
+    await request(app.getHttpServer())
+      .post(`/v1/admin/content/event/${eventId}/approve`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(201);
+
+    const bizEmail = `guide-biz-${suffix}@example.com`;
+    const appRes = await request(app.getHttpServer())
+      .post('/v1/guides/business-applications')
+      .set('Authorization', `Bearer ${guideToken}`)
+      .send({
+        email: bizEmail,
+        displayName: 'Guide Proposed Cafe',
+        baseCityId: cityId,
+        primaryDistrictId: districtId,
+        note: 'Friendly Midoun cafe',
+      })
+      .expect(201);
+    const appId = (appRes.body as { id: string }).id;
+
+    const approved = await request(app.getHttpServer())
+      .post(`/v1/admin/business-applications/${appId}/approve`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(201);
+    const temp = (approved.body as { temporaryPassword: string }).temporaryPassword;
+    expect(temp).toBeTruthy();
+
+    await request(app.getHttpServer())
+      .post('/v1/auth/login')
+      .send({ email: bizEmail, password: temp })
+      .expect(201);
+
+    const guideUser = await prisma.user.findUnique({
+      where: { email: 'guide@locallife.local' },
+    });
+    const historic = await request(app.getHttpServer())
+      .get(`/v1/admin/guides/${guideUser!.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const h = (
+      historic.body as {
+        historic: { eventCount: number; businessApplicationCount: number };
+      }
+    ).historic;
+    expect(h.eventCount).toBeGreaterThanOrEqual(1);
+    expect(h.businessApplicationCount).toBeGreaterThanOrEqual(1);
+
+    await prisma.event.deleteMany({ where: { id: eventId } });
+    await prisma.businessApplication.deleteMany({ where: { id: appId } });
+    await prisma.businessProfile.deleteMany({
+      where: { user: { email: bizEmail } },
+    });
+    await prisma.user.deleteMany({ where: { email: bizEmail } });
+  });
 });

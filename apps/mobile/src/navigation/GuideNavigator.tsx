@@ -31,8 +31,8 @@ function GuideHome() {
         {user?.displayName} · {status}
       </Text>
       <Text style={styles.body}>
-        Submit places and tips for Admin moderation. Use the same LocalLife app
-        as travelers — your role unlocks Guide tools.
+        Submit places, tips, events, and Business proposals. Admin reviews before
+        content goes live.
       </Text>
       <Pressable style={styles.btnGhost} onPress={() => void signOut()}>
         <Text style={styles.btnGhostText}>Logout</Text>
@@ -64,6 +64,7 @@ function GuideSubmitPlace() {
             summary,
             latitude: 33.81,
             longitude: 10.85,
+            categoryKey: 'restaurants',
           }),
         },
       );
@@ -163,25 +164,193 @@ function GuideSubmitTip() {
   );
 }
 
+function GuideSubmitEvent() {
+  const { city } = useCity();
+  const [title, setTitle] = useState('');
+  const [summary, setSummary] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (!city) {
+      Alert.alert('City', 'City not loaded');
+      return;
+    }
+    setBusy(true);
+    try {
+      await apiFetch('/v1/guides/events', {
+        method: 'POST',
+        body: JSON.stringify({
+          cityId: city.id,
+          title,
+          summary,
+          startsAt: new Date(Date.now() + 86400000).toISOString(),
+        }),
+      });
+      Alert.alert('Submitted', 'Event pending moderation');
+      setTitle('');
+      setSummary('');
+    } catch (e) {
+      Alert.alert('Error', e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <ScrollView contentContainerStyle={styles.page}>
+      <Text style={styles.h1}>Submit event</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Title"
+        value={title}
+        onChangeText={setTitle}
+        placeholderTextColor={colors.muted}
+      />
+      <TextInput
+        style={[styles.input, { minHeight: 90 }]}
+        placeholder="Summary"
+        multiline
+        value={summary}
+        onChangeText={setSummary}
+        placeholderTextColor={colors.muted}
+      />
+      <Pressable
+        style={[styles.btn, busy && { opacity: 0.6 }]}
+        onPress={() => void submit()}
+        disabled={busy}
+      >
+        <Text style={styles.btnText}>Submit event</Text>
+      </Pressable>
+    </ScrollView>
+  );
+}
+
+function GuideProposeBusiness() {
+  const { city } = useCity();
+  const [email, setEmail] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (!city) {
+      Alert.alert('City', 'City not loaded');
+      return;
+    }
+    setBusy(true);
+    try {
+      const districts = await apiFetch<
+        Array<{ id: string; slug: string }>
+      >(`/v1/cities/${city.id}/districts`);
+      const districtId = districts[0]?.id;
+      if (!districtId) throw new Error('No districts for city');
+      await apiFetch('/v1/guides/business-applications', {
+        method: 'POST',
+        body: JSON.stringify({
+          email,
+          displayName,
+          baseCityId: city.id,
+          primaryDistrictId: districtId,
+        }),
+      });
+      Alert.alert('Submitted', 'Business proposal pending Admin approval');
+      setEmail('');
+      setDisplayName('');
+    } catch (e) {
+      Alert.alert('Error', e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <ScrollView contentContainerStyle={styles.page}>
+      <Text style={styles.h1}>Propose Business</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Display name"
+        value={displayName}
+        onChangeText={setDisplayName}
+        placeholderTextColor={colors.muted}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Email"
+        autoCapitalize="none"
+        keyboardType="email-address"
+        value={email}
+        onChangeText={setEmail}
+        placeholderTextColor={colors.muted}
+      />
+      <Pressable
+        style={[styles.btn, busy && { opacity: 0.6 }]}
+        onPress={() => void submit()}
+        disabled={busy}
+      >
+        <Text style={styles.btnText}>Submit proposal</Text>
+      </Pressable>
+    </ScrollView>
+  );
+}
+
 function GuideSubmissions() {
-  const [places, setPlaces] = useState<
-    Array<{ id: string; name: string; verificationStatus: string }>
+  const [items, setItems] = useState<
+    Array<{ id: string; label: string; status: string }>
   >([]);
   useEffect(() => {
-    void apiFetch<{ places: typeof places }>('/v1/guides/me/submissions')
-      .then((r) => setPlaces(r.places ?? []))
-      .catch(() => setPlaces([]));
+    void apiFetch<{
+      places: Array<{ id: string; name: string; verificationStatus: string }>;
+      tips: Array<{ id: string; title: string; verificationStatus: string }>;
+      events: Array<{ id: string; title: string; verificationStatus: string }>;
+      businessApplications: Array<{
+        id: string;
+        displayName: string;
+        status: string;
+      }>;
+    }>('/v1/guides/me/submissions')
+      .then((r) => {
+        const rows: Array<{ id: string; label: string; status: string }> = [];
+        for (const p of r.places ?? []) {
+          rows.push({
+            id: p.id,
+            label: `Place · ${p.name}`,
+            status: p.verificationStatus,
+          });
+        }
+        for (const t of r.tips ?? []) {
+          rows.push({
+            id: t.id,
+            label: `Tip · ${t.title}`,
+            status: t.verificationStatus,
+          });
+        }
+        for (const e of r.events ?? []) {
+          rows.push({
+            id: e.id,
+            label: `Event · ${e.title}`,
+            status: e.verificationStatus,
+          });
+        }
+        for (const a of r.businessApplications ?? []) {
+          rows.push({
+            id: a.id,
+            label: `Biz · ${a.displayName}`,
+            status: a.status,
+          });
+        }
+        setItems(rows);
+      })
+      .catch(() => setItems([]));
   }, []);
   return (
     <ScrollView contentContainerStyle={styles.page}>
       <Text style={styles.h1}>Submissions</Text>
-      {places.length === 0 ? (
-        <Text style={styles.muted}>No place submissions yet</Text>
+      {items.length === 0 ? (
+        <Text style={styles.muted}>No submissions yet</Text>
       ) : (
-        places.map((p) => (
+        items.map((p) => (
           <View key={p.id} style={styles.card}>
-            <Text style={styles.cardTitle}>{p.name}</Text>
-            <Text style={styles.muted}>{p.verificationStatus}</Text>
+            <Text style={styles.cardTitle}>{p.label}</Text>
+            <Text style={styles.muted}>{p.status}</Text>
           </View>
         ))
       )}
@@ -197,13 +366,31 @@ export function GuideNavigator() {
         headerStyle: { backgroundColor: colors.bg },
       }}
     >
-      <Tab.Screen name="GuideHome" component={GuideHome} options={{ title: 'Home' }} />
+      <Tab.Screen
+        name="GuideHome"
+        component={GuideHome}
+        options={{ title: 'Home' }}
+      />
       <Tab.Screen
         name="GuidePlace"
         component={GuideSubmitPlace}
         options={{ title: 'Place' }}
       />
-      <Tab.Screen name="GuideTip" component={GuideSubmitTip} options={{ title: 'Tip' }} />
+      <Tab.Screen
+        name="GuideTip"
+        component={GuideSubmitTip}
+        options={{ title: 'Tip' }}
+      />
+      <Tab.Screen
+        name="GuideEvent"
+        component={GuideSubmitEvent}
+        options={{ title: 'Event' }}
+      />
+      <Tab.Screen
+        name="GuideBiz"
+        component={GuideProposeBusiness}
+        options={{ title: 'Biz' }}
+      />
       <Tab.Screen
         name="GuideSubs"
         component={GuideSubmissions}

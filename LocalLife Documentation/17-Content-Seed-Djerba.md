@@ -33,6 +33,21 @@ Create:
 
 Restaurants, cafés, beaches, hotels, museums/heritage, shops/souks, supermarkets, pharmacies, hospitals/clinics, parks/nature, ATMs/banks, mosques, transport hubs, activities, nightlife (if applicable), family-friendly, student-friendly tags.
 
+### Zone-knowledge extras (Guide pack)
+
+Also seed (or Guide-submit) categories for daily practical questions:
+
+- `phone_repair`, `car_repair`, `budget_shops`, `camping`, `car_rental`
+
+Place **metadata attributes** (JSON on Place) examples:
+
+- `bestTimeOfDay=sunset`
+- `budgetFriendly=true`
+- `safetyNote=…`
+- `zoneHint=tourist|local|quiet`
+
+Pair with **LocalRules** / tips for danger areas, rental norms, camping guidance (not map polygons in MVP).
+
 ---
 
 ## 4. Places seed targets

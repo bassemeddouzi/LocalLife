@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import {
   ClaimStatus,
+  BusinessApplicationStatus,
   GuideApplicationStatus,
   ReportStatus,
   UserRole,
@@ -163,77 +164,147 @@ export class AdminController {
   @Get('moderation/queue')
   @Auth(UserRole.ADMIN)
   async queue(@Query('type') type?: string) {
-    const [places, reviews, tips, reports, guideApps, claims] =
-      await Promise.all([
-        !type || type === 'place'
-          ? this.prisma.place.findMany({
-              where: {
-                verificationStatus: VerificationStatus.PENDING,
-                deletedAt: null,
+    const [
+      places,
+      reviews,
+      tips,
+      reports,
+      guideApps,
+      claims,
+      events,
+      experiences,
+      businessApplications,
+    ] = await Promise.all([
+      !type || type === 'place'
+        ? this.prisma.place.findMany({
+            where: {
+              verificationStatus: VerificationStatus.PENDING,
+              deletedAt: null,
+            },
+            take: 100,
+            orderBy: { createdAt: 'asc' },
+            select: {
+              id: true,
+              name: true,
+              cityId: true,
+              verificationStatus: true,
+              createdAt: true,
+            },
+          })
+        : Promise.resolve([]),
+      !type || type === 'review'
+        ? this.prisma.review.findMany({
+            where: {
+              status: VerificationStatus.PENDING,
+              deletedAt: null,
+            },
+            take: 100,
+            orderBy: { createdAt: 'asc' },
+          })
+        : Promise.resolve([]),
+      !type || type === 'tip'
+        ? this.prisma.howToGuide.findMany({
+            where: { verificationStatus: VerificationStatus.PENDING },
+            take: 100,
+            orderBy: { createdAt: 'asc' },
+          })
+        : Promise.resolve([]),
+      !type || type === 'report'
+        ? this.prisma.report.findMany({
+            where: { status: ReportStatus.OPEN },
+            take: 100,
+            orderBy: { createdAt: 'asc' },
+          })
+        : Promise.resolve([]),
+      !type || type === 'guide'
+        ? this.prisma.guideProfile.findMany({
+            where: {
+              status: {
+                in: [
+                  GuideApplicationStatus.APPLIED,
+                  GuideApplicationStatus.UNDER_REVIEW,
+                ],
               },
-              take: 100,
-              orderBy: { createdAt: 'asc' },
-              select: {
-                id: true,
-                name: true,
-                cityId: true,
-                verificationStatus: true,
-                createdAt: true,
+            },
+            take: 100,
+            include: {
+              user: {
+                select: { id: true, email: true, displayName: true },
               },
-            })
-          : Promise.resolve([]),
-        !type || type === 'review'
-          ? this.prisma.review.findMany({
-              where: {
-                status: VerificationStatus.PENDING,
-                deletedAt: null,
+            },
+          })
+        : Promise.resolve([]),
+      !type || type === 'claim'
+        ? this.prisma.businessPlaceClaim.findMany({
+            where: { status: ClaimStatus.PENDING },
+            take: 100,
+            orderBy: { createdAt: 'asc' },
+          })
+        : Promise.resolve([]),
+      !type || type === 'event'
+        ? this.prisma.event.findMany({
+            where: {
+              verificationStatus: VerificationStatus.PENDING,
+              deletedAt: null,
+            },
+            take: 100,
+            orderBy: { createdAt: 'asc' },
+            select: {
+              id: true,
+              title: true,
+              cityId: true,
+              verificationStatus: true,
+              createdAt: true,
+              startsAt: true,
+            },
+          })
+        : Promise.resolve([]),
+      !type || type === 'experience'
+        ? this.prisma.experience.findMany({
+            where: {
+              verificationStatus: VerificationStatus.PENDING,
+              deletedAt: null,
+            },
+            take: 100,
+            orderBy: { createdAt: 'asc' },
+            select: {
+              id: true,
+              title: true,
+              cityId: true,
+              verificationStatus: true,
+              createdAt: true,
+            },
+          })
+        : Promise.resolve([]),
+      !type || type === 'business-application'
+        ? this.prisma.businessApplication.findMany({
+            where: { status: BusinessApplicationStatus.PENDING },
+            take: 100,
+            orderBy: { createdAt: 'asc' },
+            include: {
+              proposedByGuide: {
+                select: { id: true, email: true, displayName: true },
               },
-              take: 100,
-              orderBy: { createdAt: 'asc' },
-            })
-          : Promise.resolve([]),
-        !type || type === 'tip'
-          ? this.prisma.howToGuide.findMany({
-              where: { verificationStatus: VerificationStatus.PENDING },
-              take: 100,
-              orderBy: { createdAt: 'asc' },
-            })
-          : Promise.resolve([]),
-        !type || type === 'report'
-          ? this.prisma.report.findMany({
-              where: { status: ReportStatus.OPEN },
-              take: 100,
-              orderBy: { createdAt: 'asc' },
-            })
-          : Promise.resolve([]),
-        !type || type === 'guide'
-          ? this.prisma.guideProfile.findMany({
-              where: {
-                status: {
-                  in: [
-                    GuideApplicationStatus.APPLIED,
-                    GuideApplicationStatus.UNDER_REVIEW,
-                  ],
-                },
+              baseCity: { select: { id: true, name: true, slug: true } },
+              primaryDistrict: {
+                select: { id: true, name: true, slug: true },
               },
-              take: 100,
-              include: {
-                user: {
-                  select: { id: true, email: true, displayName: true },
-                },
-              },
-            })
-          : Promise.resolve([]),
-        !type || type === 'claim'
-          ? this.prisma.businessPlaceClaim.findMany({
-              where: { status: ClaimStatus.PENDING },
-              take: 100,
-              orderBy: { createdAt: 'asc' },
-            })
-          : Promise.resolve([]),
-      ]);
+            },
+          })
+        : Promise.resolve([]),
+    ]);
 
-    return { places, reviews, tips, reports, guideApps, claims };
+    return {
+      places,
+      reviews,
+      tips,
+      reports,
+      guideApps,
+      claims,
+      events,
+      experiences,
+      businessApplications,
+    };
   }
 
   @Post('content/:type/:id/approve')
@@ -432,6 +503,46 @@ export class AdminController {
         entityId: id,
         beforeJson: { status: before.status },
         afterJson: { status: after.status, reason },
+        requestId,
+      });
+      return after;
+    }
+
+    if (type === 'event') {
+      const before = await this.prisma.event.findUnique({ where: { id } });
+      if (!before) throw new NotFoundException('Event not found');
+      const after = await this.prisma.event.update({
+        where: { id },
+        data: { verificationStatus: status },
+      });
+      await this.audit.log({
+        actorUserId: user.id,
+        action: `event.${decision}`,
+        entityType: 'event',
+        entityId: id,
+        beforeJson: { verificationStatus: before.verificationStatus },
+        afterJson: { verificationStatus: after.verificationStatus, reason },
+        requestId,
+      });
+      return after;
+    }
+
+    if (type === 'experience') {
+      const before = await this.prisma.experience.findUnique({
+        where: { id },
+      });
+      if (!before) throw new NotFoundException('Experience not found');
+      const after = await this.prisma.experience.update({
+        where: { id },
+        data: { verificationStatus: status },
+      });
+      await this.audit.log({
+        actorUserId: user.id,
+        action: `experience.${decision}`,
+        entityType: 'experience',
+        entityId: id,
+        beforeJson: { verificationStatus: before.verificationStatus },
+        afterJson: { verificationStatus: after.verificationStatus, reason },
         requestId,
       });
       return after;
@@ -776,27 +887,96 @@ export class AdminController {
       },
     });
     if (!user) throw new NotFoundException('Guide not found');
-    const places = await this.prisma.place.findMany({
-      where: { createdByUserId: id, deletedAt: null },
-      orderBy: { createdAt: 'desc' },
-      take: 10,
-      select: {
-        id: true,
-        name: true,
-        verificationStatus: true,
-        createdAt: true,
-      },
-    });
-    const placeCount = await this.prisma.place.count({
-      where: { createdByUserId: id, deletedAt: null },
-    });
+    const [places, tips, events, experiences, businessApplications] =
+      await Promise.all([
+        this.prisma.place.findMany({
+          where: { createdByUserId: id, deletedAt: null },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          select: {
+            id: true,
+            name: true,
+            verificationStatus: true,
+            createdAt: true,
+          },
+        }),
+        this.prisma.howToGuide.findMany({
+          where: { createdByUserId: id },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          select: {
+            id: true,
+            title: true,
+            categoryKey: true,
+            verificationStatus: true,
+            createdAt: true,
+          },
+        }),
+        this.prisma.event.findMany({
+          where: { createdByUserId: id, deletedAt: null },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          select: {
+            id: true,
+            title: true,
+            verificationStatus: true,
+            startsAt: true,
+            createdAt: true,
+          },
+        }),
+        this.prisma.experience.findMany({
+          where: { createdByUserId: id, deletedAt: null },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          select: {
+            id: true,
+            title: true,
+            verificationStatus: true,
+            createdAt: true,
+          },
+        }),
+        this.prisma.businessApplication.findMany({
+          where: { proposedByGuideUserId: id },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          select: {
+            id: true,
+            email: true,
+            displayName: true,
+            status: true,
+            createdAt: true,
+          },
+        }),
+      ]);
+    const [placeCount, tipCount, eventCount, experienceCount, bizAppCount] =
+      await Promise.all([
+        this.prisma.place.count({
+          where: { createdByUserId: id, deletedAt: null },
+        }),
+        this.prisma.howToGuide.count({ where: { createdByUserId: id } }),
+        this.prisma.event.count({
+          where: { createdByUserId: id, deletedAt: null },
+        }),
+        this.prisma.experience.count({
+          where: { createdByUserId: id, deletedAt: null },
+        }),
+        this.prisma.businessApplication.count({
+          where: { proposedByGuideUserId: id },
+        }),
+      ]);
     return {
       user,
       historic: {
         placeCount,
-        tipCount: 0,
+        tipCount,
+        eventCount,
+        experienceCount,
+        businessApplicationCount: bizAppCount,
         recentPlaces: places,
-        recentTips: [] as unknown[],
+        recentTips: tips,
+        recentEvents: events,
+        recentExperiences: experiences,
+        recentBusinessApplications: businessApplications,
       },
     };
   }
@@ -882,6 +1062,114 @@ export class AdminController {
       requestId: req.requestId,
     });
     return { user, temporaryPassword: password };
+  }
+
+  @Post('business-applications/:id/approve')
+  @Auth(UserRole.ADMIN)
+  async approveBusinessApplication(
+    @CurrentUser() admin: AuthUser,
+    @Param('id') id: string,
+    @Req() req: Request & { requestId?: string },
+  ) {
+    const app = await this.prisma.businessApplication.findUnique({
+      where: { id },
+    });
+    if (!app) throw new NotFoundException('Business application not found');
+    if (app.status !== BusinessApplicationStatus.PENDING) {
+      throw new BadRequestException('Application is not pending');
+    }
+    const existing = await this.prisma.user.findUnique({
+      where: { email: app.email },
+    });
+    if (existing) throw new ConflictException('Email already registered');
+
+    const password = tempPassword();
+    const passwordHash = await argon2.hash(password);
+    const user = await this.prisma.user.create({
+      data: {
+        email: app.email,
+        displayName: app.displayName,
+        role: UserRole.BUSINESS,
+        passwordHash,
+        status: UserStatus.ACTIVE,
+        preference: { create: {} },
+        businessProfile: {
+          create: {
+            displayName: app.displayName,
+            contactEmail: app.email,
+            verificationStatus: VerificationStatus.APPROVED,
+            baseCityId: app.baseCityId,
+            primaryDistrictId: app.primaryDistrictId,
+          },
+        },
+      },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        role: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+    const updated = await this.prisma.businessApplication.update({
+      where: { id },
+      data: {
+        status: BusinessApplicationStatus.APPROVED,
+        reviewedByAdminId: admin.id,
+        reviewedAt: new Date(),
+        createdBusinessUserId: user.id,
+      },
+    });
+    await this.audit.log({
+      actorUserId: admin.id,
+      action: 'business-application.approve',
+      entityType: 'business-application',
+      entityId: id,
+      afterJson: {
+        email: user.email,
+        createdBusinessUserId: user.id,
+      },
+      requestId: req.requestId,
+    });
+    return { application: updated, user, temporaryPassword: password };
+  }
+
+  @Post('business-applications/:id/reject')
+  @Auth(UserRole.ADMIN)
+  async rejectBusinessApplication(
+    @CurrentUser() admin: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: RejectDto,
+    @Req() req: Request & { requestId?: string },
+  ) {
+    const app = await this.prisma.businessApplication.findUnique({
+      where: { id },
+    });
+    if (!app) throw new NotFoundException('Business application not found');
+    if (app.status !== BusinessApplicationStatus.PENDING) {
+      throw new BadRequestException('Application is not pending');
+    }
+    const updated = await this.prisma.businessApplication.update({
+      where: { id },
+      data: {
+        status: BusinessApplicationStatus.REJECTED,
+        reviewedByAdminId: admin.id,
+        reviewedAt: new Date(),
+        note: app.note
+          ? `${app.note}\n[reject] ${dto.reason}`
+          : `[reject] ${dto.reason}`,
+      },
+    });
+    await this.audit.log({
+      actorUserId: admin.id,
+      action: 'business-application.reject',
+      entityType: 'business-application',
+      entityId: id,
+      afterJson: { reason: dto.reason },
+      requestId: req.requestId,
+    });
+    return updated;
   }
 
   @Patch('businesses/:id')
