@@ -16,20 +16,52 @@ export function GuideHomePage() {
 
   return (
     <div style={ui.page}>
-      <h1>Guide home</h1>
-      <p style={ui.muted}>
-        Status: {profile?.status ?? 'no profile — apply if needed'}
-      </p>
-      <div style={ui.card}>
-        <Link to="/guide/submit-place">Submit a place →</Link>
+      <div className="ll-page-head">
+        <div>
+          <h1>Guide home</h1>
+          <p className="ll-page-sub">
+            Submit places and tips for Djerba. Admin reviews before they go live.
+          </p>
+        </div>
+        {profile?.status ? (
+          <span className="ll-badge ll-badge--ok">{profile.status}</span>
+        ) : (
+          <span className="ll-badge ll-badge--neutral">No profile</span>
+        )}
       </div>
-      <div style={ui.card}>
-        <Link to="/guide/submit-tip">Submit a tip →</Link>
-      </div>
-      <div style={ui.card}>
-        <Link to="/guide/submissions">Track submissions →</Link>
+
+      <div style={{ ...ui.grid2, marginTop: '1.25rem' }}>
+        <LinkCard to="/guide/submit-place" title="Submit a place" body="Add a venue with location and photo." />
+        <LinkCard to="/guide/submit-tip" title="Submit a tip" body="Share a practical local tip." />
+        <LinkCard to="/guide/submissions" title="Track submissions" body="See pending and approved work." />
       </div>
     </div>
+  );
+}
+
+function LinkCard({
+  to,
+  title,
+  body,
+}: {
+  to: string;
+  title: string;
+  body: string;
+}) {
+  return (
+    <Link
+      to={to}
+      style={{
+        ...ui.card,
+        marginBottom: 0,
+        textDecoration: 'none',
+        color: 'inherit',
+        display: 'block',
+      }}
+    >
+      <strong style={{ fontSize: '1.05rem' }}>{title}</strong>
+      <p style={{ ...ui.muted, margin: '0.4rem 0 0' }}>{body}</p>
+    </Link>
   );
 }
 
@@ -93,8 +125,16 @@ export function GuideSubmitPlacePage() {
 
   return (
     <div style={ui.page}>
-      <h1>Submit place</h1>
-      <form onSubmit={onSubmit} style={ui.card}>
+      <div className="ll-page-head">
+        <div>
+          <h1>Submit place</h1>
+          <p className="ll-page-sub">
+            New places enter PENDING until Admin approves them.
+          </p>
+        </div>
+      </div>
+      {msg ? <div style={ui.alert}>{msg}</div> : null}
+      <form onSubmit={onSubmit} style={ui.panel}>
         <label>
           Name
           <input
@@ -113,22 +153,24 @@ export function GuideSubmitPlacePage() {
             onChange={(e) => setSummary(e.target.value)}
           />
         </label>
-        <label>
-          Latitude
-          <input
-            style={ui.input}
-            value={lat}
-            onChange={(e) => setLat(e.target.value)}
-          />
-        </label>
-        <label>
-          Longitude
-          <input
-            style={ui.input}
-            value={lng}
-            onChange={(e) => setLng(e.target.value)}
-          />
-        </label>
+        <div style={ui.grid2}>
+          <label>
+            Latitude
+            <input
+              style={ui.input}
+              value={lat}
+              onChange={(e) => setLat(e.target.value)}
+            />
+          </label>
+          <label>
+            Longitude
+            <input
+              style={ui.input}
+              value={lng}
+              onChange={(e) => setLng(e.target.value)}
+            />
+          </label>
+        </div>
         <label>
           Photo URL (placeholder OK)
           <input
@@ -138,10 +180,9 @@ export function GuideSubmitPlacePage() {
           />
         </label>
         <button type="submit" style={ui.btn}>
-          Submit PENDING
+          Submit for review
         </button>
       </form>
-      {msg ? <p>{msg}</p> : null}
     </div>
   );
 }
@@ -189,8 +230,16 @@ export function GuideSubmitTipPage() {
 
   return (
     <div style={ui.page}>
-      <h1>Submit tip</h1>
-      <form onSubmit={onSubmit} style={ui.card}>
+      <div className="ll-page-head">
+        <div>
+          <h1>Submit tip</h1>
+          <p className="ll-page-sub">
+            Tips stay PENDING until moderation clears them.
+          </p>
+        </div>
+      </div>
+      {msg ? <div style={ui.alert}>{msg}</div> : null}
+      <form onSubmit={onSubmit} style={ui.panel}>
         <label>
           Title
           <input
@@ -210,10 +259,9 @@ export function GuideSubmitTipPage() {
           />
         </label>
         <button type="submit" style={ui.btn}>
-          Submit PENDING
+          Submit for review
         </button>
       </form>
-      {msg ? <p>{msg}</p> : null}
     </div>
   );
 }
@@ -227,16 +275,57 @@ export function GuideSubmissionsPage() {
     void api<typeof data>('/v1/guides/me/submissions').then(setData);
   }, []);
 
+  const places = data?.places ?? [];
+
   return (
-    <div style={ui.page}>
-      <h1>My submissions</h1>
-      {(data?.places ?? []).map((p) => (
-        <div key={p.id} style={ui.card}>
-          <strong>{p.name}</strong>
-          <div style={ui.muted}>{p.verificationStatus}</div>
+    <div style={ui.pageWide}>
+      <div className="ll-page-head">
+        <div>
+          <h1>My submissions</h1>
+          <p className="ll-page-sub">Places you submitted and their review status.</p>
         </div>
-      ))}
-      {!data?.places?.length ? <p style={ui.muted}>No place submissions yet.</p> : null}
+      </div>
+
+      <div className="ll-table-wrap">
+        <table className="ll-table">
+          <thead>
+            <tr>
+              <th>Place</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {places.length === 0 ? (
+              <tr>
+                <td colSpan={2}>
+                  <p className="ll-empty">No place submissions yet</p>
+                </td>
+              </tr>
+            ) : (
+              places.map((p) => (
+                <tr key={p.id}>
+                  <td>
+                    <strong>{p.name}</strong>
+                  </td>
+                  <td>
+                    <span
+                      className={`ll-badge ${
+                        p.verificationStatus === 'APPROVED'
+                          ? 'll-badge--ok'
+                          : p.verificationStatus === 'REJECTED'
+                            ? 'll-badge--danger'
+                            : 'll-badge--warn'
+                      }`}
+                    >
+                      {p.verificationStatus}
+                    </span>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

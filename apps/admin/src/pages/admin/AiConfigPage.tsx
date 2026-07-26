@@ -46,16 +46,37 @@ export function AiConfigPage() {
     }
   }
 
-  if (!config) return <p>Loading…</p>;
+  if (!config) return <p style={ui.muted}>Loading AI config…</p>;
 
   return (
     <div style={ui.page}>
-      <h1>AI Config</h1>
-      <p style={ui.muted}>
-        Provider: {config.provider} · API key configured:{' '}
-        {config.apiKeyConfigured ? 'yes' : 'no'} (secret never shown)
-      </p>
-      <form onSubmit={onSubmit} style={ui.card}>
+      <div className="ll-page-head">
+        <div>
+          <h1>AI config</h1>
+          <p className="ll-page-sub">
+            Choose the chat model for the grounded agent. API keys stay on the
+            server and are never shown here.
+          </p>
+        </div>
+      </div>
+
+      {msg ? <div style={ui.alert}>{msg}</div> : null}
+
+      <div style={{ ...ui.grid2, marginBottom: '1rem' }}>
+        <Meta label="Provider" value={config.provider} />
+        <Meta
+          label="API key"
+          value={config.apiKeyConfigured ? 'Configured' : 'Missing'}
+          badge={config.apiKeyConfigured ? 'ok' : 'danger'}
+        />
+        <Meta
+          label="Status"
+          value={config.enabled ? 'Enabled' : 'Disabled'}
+          badge={config.enabled ? 'ok' : 'neutral'}
+        />
+      </div>
+
+      <form onSubmit={onSubmit} style={ui.panel}>
         <label>
           Model id
           <input
@@ -72,31 +93,64 @@ export function AiConfigPage() {
             onChange={(e) => setFallback(e.target.value)}
           />
         </label>
-        <label style={ui.row}>
+        <label style={{ ...ui.row, marginBottom: 12 }}>
           <input
             type="checkbox"
             checked={enabled}
             onChange={(e) => setEnabled(e.target.checked)}
           />
-          Enabled
+          <span style={{ fontWeight: 600, color: 'var(--ll-ink)' }}>Enabled</span>
         </label>
-        <div style={ui.row}>
-          {config.suggestedModels.map((m) => (
-            <button
-              key={m}
-              type="button"
-              style={ui.btnGhost}
-              onClick={() => setModelId(m)}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
-        <button type="submit" style={{ ...ui.btn, marginTop: 12 }}>
-          Save
+
+        {config.suggestedModels.length ? (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ ...ui.muted, fontSize: '0.82rem', marginBottom: 8 }}>
+              Suggested models
+            </div>
+            <div className="ll-actions">
+              {config.suggestedModels.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  style={ui.btnGhost}
+                  onClick={() => setModelId(m)}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <button type="submit" style={ui.btn}>
+          Save changes
         </button>
       </form>
-      {msg ? <p>{msg}</p> : null}
+    </div>
+  );
+}
+
+function Meta({
+  label,
+  value,
+  badge,
+}: {
+  label: string;
+  value: string;
+  badge?: 'ok' | 'danger' | 'neutral';
+}) {
+  return (
+    <div style={{ ...ui.card, marginBottom: 0 }}>
+      <div style={{ ...ui.muted, fontSize: '0.78rem', fontWeight: 700 }}>
+        {label}
+      </div>
+      <div style={{ marginTop: 6, fontWeight: 700 }}>
+        {badge ? (
+          <span className={`ll-badge ll-badge--${badge}`}>{value}</span>
+        ) : (
+          value
+        )}
+      </div>
     </div>
   );
 }

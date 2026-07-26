@@ -21,7 +21,7 @@ type UserRow = {
 type Tab = 'CLIENT' | 'GUIDE' | 'BUSINESS';
 
 type GuideDetail = {
-  user: UserRow & { guideProfile?: unknown };
+  user: UserRow;
   historic: {
     placeCount: number;
     tipCount: number;
@@ -35,7 +35,7 @@ type GuideDetail = {
 };
 
 type BusinessDetail = {
-  user: UserRow & { businessProfile?: unknown };
+  user: UserRow;
   historic: {
     claimCount: number;
     ownedPlaceCount: number;
@@ -48,9 +48,26 @@ type BusinessDetail = {
   };
 };
 
+const TAB_LABEL: Record<Tab, string> = {
+  CLIENT: 'Clients',
+  GUIDE: 'Guides',
+  BUSINESS: 'Business',
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const cls =
+    status === 'ACTIVE'
+      ? 'll-badge ll-badge--ok'
+      : status === 'SUSPENDED'
+        ? 'll-badge ll-badge--danger'
+        : 'll-badge ll-badge--neutral';
+  return <span className={cls}>{status}</span>;
+}
+
 export function UsersPage() {
   const [tab, setTab] = useState<Tab>('CLIENT');
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
   const [tempPassword, setTempPassword] = useState<string | null>(null);
 
@@ -63,8 +80,13 @@ export function UsersPage() {
   const [detailBiz, setDetailBiz] = useState<BusinessDetail | null>(null);
 
   const load = useCallback(async () => {
-    const rows = await api<UserRow[]>(`/v1/admin/users?role=${tab}`);
-    setUsers(rows);
+    setLoading(true);
+    try {
+      const rows = await api<UserRow[]>(`/v1/admin/users?role=${tab}`);
+      setUsers(rows);
+    } finally {
+      setLoading(false);
+    }
   }, [tab]);
 
   useEffect(() => {
@@ -77,10 +99,9 @@ export function UsersPage() {
 
   async function setBlocked(id: string, block: boolean) {
     try {
-      await api(
-        `/v1/admin/users/${id}/${block ? 'suspend' : 'reactivate'}`,
-        { method: 'POST' },
-      );
+      await api(`/v1/admin/users/${id}/${block ? 'suspend' : 'reactivate'}`, {
+        method: 'POST',
+      });
       setMsg(block ? 'User suspended' : 'User reactivated');
       await load();
       if (detailGuide?.user.id === id) setDetailGuide(null);
@@ -93,17 +114,17 @@ export function UsersPage() {
   async function addGuide(e: FormEvent) {
     e.preventDefault();
     try {
-      const res = await api<{
-        user: UserRow;
-        temporaryPassword: string;
-      }>('/v1/admin/guides', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: guideEmail,
-          displayName: guideName,
-          languages: ['en', 'fr', 'ar'],
-        }),
-      });
+      const res = await api<{ user: UserRow; temporaryPassword: string }>(
+        '/v1/admin/guides',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            email: guideEmail,
+            displayName: guideName,
+            languages: ['en', 'fr', 'ar'],
+          }),
+        },
+      );
       setTempPassword(res.temporaryPassword);
       setGuideEmail('');
       setGuideName('');
@@ -117,16 +138,16 @@ export function UsersPage() {
   async function addBusiness(e: FormEvent) {
     e.preventDefault();
     try {
-      const res = await api<{
-        user: UserRow;
-        temporaryPassword: string;
-      }>('/v1/admin/businesses', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: bizEmail,
-          displayName: bizName,
-        }),
-      });
+      const res = await api<{ user: UserRow; temporaryPassword: string }>(
+        '/v1/admin/businesses',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            email: bizEmail,
+            displayName: bizName,
+          }),
+        },
+      );
       setTempPassword(res.temporaryPassword);
       setBizEmail('');
       setBizName('');
@@ -139,8 +160,7 @@ export function UsersPage() {
 
   async function openGuide(id: string) {
     try {
-      const d = await api<GuideDetail>(`/v1/admin/guides/${id}`);
-      setDetailGuide(d);
+      setDetailGuide(await api<GuideDetail>(`/v1/admin/guides/${id}`));
       setDetailBiz(null);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : String(e));
@@ -149,8 +169,7 @@ export function UsersPage() {
 
   async function openBusiness(id: string) {
     try {
-      const d = await api<BusinessDetail>(`/v1/admin/businesses/${id}`);
-      setDetailBiz(d);
+      setDetailBiz(await api<BusinessDetail>(`/v1/admin/businesses/${id}`));
       setDetailGuide(null);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : String(e));
@@ -158,54 +177,80 @@ export function UsersPage() {
   }
 
   return (
-    <div style={ui.page}>
-      <h1>Users</h1>
-      {msg ? <p style={ui.muted}>{msg}</p> : null}
+    <div style={ui.pageWide}>
+      <div className="ll-page-head">
+        <div>
+          <h1>Users</h1>
+          <p className="ll-page-sub">
+            Manage clients, provision Guides and Business accounts, and block
+            abuse. Temporary passwords are shown once.
+          </p>
+        </div>
+      </div>
+
+      {msg ? <div style={ui.alert}>{msg}</div> : null}
+
       {tempPassword ? (
-        <div style={{ ...ui.card, border: '2px solid #0f766e' }}>
-          <strong>Temporary password (copy now — shown once)</strong>
-          <pre style={{ margin: '8px 0', userSelect: 'all' }}>{tempPassword}</pre>
+        <div style={ui.alertWarn}>
+          <strong>Temporary password — copy now</strong>
+          <pre
+            style={{
+              margin: '0.6rem 0 0.75rem',
+              userSelect: 'all',
+              fontFamily: 'ui-monospace, monospace',
+              fontSize: '1rem',
+            }}
+          >
+            {tempPassword}
+          </pre>
           <button type="button" style={ui.btnGhost} onClick={() => setTempPassword(null)}>
             Dismiss
           </button>
         </div>
       ) : null}
 
-      <div style={ui.row}>
+      <div className="ll-tabs" role="tablist">
         {(['CLIENT', 'GUIDE', 'BUSINESS'] as Tab[]).map((t) => (
           <button
             key={t}
             type="button"
-            style={tab === t ? ui.btn : ui.btnGhost}
+            role="tab"
+            aria-selected={tab === t}
+            className={`ll-tab${tab === t ? ' is-active' : ''}`}
             onClick={() => setTab(t)}
           >
-            {t === 'CLIENT' ? 'Clients' : t === 'GUIDE' ? 'Guides' : 'Business'}
+            {TAB_LABEL[t]}
           </button>
         ))}
       </div>
 
       {tab === 'GUIDE' ? (
-        <form onSubmit={addGuide} style={ui.card}>
-          <h3 style={{ marginTop: 0 }}>Add Guide</h3>
-          <label>
-            Email
-            <input
-              required
-              type="email"
-              style={ui.input}
-              value={guideEmail}
-              onChange={(e) => setGuideEmail(e.target.value)}
-            />
-          </label>
-          <label>
-            Display name
-            <input
-              required
-              style={ui.input}
-              value={guideName}
-              onChange={(e) => setGuideName(e.target.value)}
-            />
-          </label>
+        <form onSubmit={addGuide} style={ui.panel}>
+          <h2>Add Guide</h2>
+          <p style={{ ...ui.muted, marginTop: 0 }}>
+            Creates an approved Guide. Share the password securely.
+          </p>
+          <div style={ui.grid2}>
+            <label>
+              Email
+              <input
+                required
+                type="email"
+                style={ui.input}
+                value={guideEmail}
+                onChange={(e) => setGuideEmail(e.target.value)}
+              />
+            </label>
+            <label>
+              Display name
+              <input
+                required
+                style={ui.input}
+                value={guideName}
+                onChange={(e) => setGuideName(e.target.value)}
+              />
+            </label>
+          </div>
           <button type="submit" style={ui.btn}>
             Create Guide
           </button>
@@ -213,113 +258,170 @@ export function UsersPage() {
       ) : null}
 
       {tab === 'BUSINESS' ? (
-        <form onSubmit={addBusiness} style={ui.card}>
-          <h3 style={{ marginTop: 0 }}>Add Business</h3>
-          <label>
-            Email
-            <input
-              required
-              type="email"
-              style={ui.input}
-              value={bizEmail}
-              onChange={(e) => setBizEmail(e.target.value)}
-            />
-          </label>
-          <label>
-            Display name
-            <input
-              required
-              style={ui.input}
-              value={bizName}
-              onChange={(e) => setBizName(e.target.value)}
-            />
-          </label>
+        <form onSubmit={addBusiness} style={ui.panel}>
+          <h2>Add Business</h2>
+          <p style={{ ...ui.muted, marginTop: 0 }}>
+            Creates a Business account ready to claim places.
+          </p>
+          <div style={ui.grid2}>
+            <label>
+              Email
+              <input
+                required
+                type="email"
+                style={ui.input}
+                value={bizEmail}
+                onChange={(e) => setBizEmail(e.target.value)}
+              />
+            </label>
+            <label>
+              Display name
+              <input
+                required
+                style={ui.input}
+                value={bizName}
+                onChange={(e) => setBizName(e.target.value)}
+              />
+            </label>
+          </div>
           <button type="submit" style={ui.btn}>
             Create Business
           </button>
         </form>
       ) : null}
 
-      {users.map((u) => (
-        <div key={u.id} style={ui.card}>
-          <strong>
-            {u.displayName} · {u.role} · {u.status}
-          </strong>
-          <div style={ui.muted}>
-            {u.email}
-            {u.lastLoginAt
-              ? ` · last login ${new Date(u.lastLoginAt).toLocaleString()}`
-              : ''}
-          </div>
-          <div style={{ ...ui.row, marginTop: 8 }}>
-            {tab === 'GUIDE' ? (
-              <button type="button" style={ui.btnGhost} onClick={() => void openGuide(u.id)}>
-                Historic
-              </button>
-            ) : null}
-            {tab === 'BUSINESS' ? (
-              <button
-                type="button"
-                style={ui.btnGhost}
-                onClick={() => void openBusiness(u.id)}
-              >
-                Historic
-              </button>
-            ) : null}
-            {u.status === 'ACTIVE' ? (
-              <button type="button" style={ui.btn} onClick={() => void setBlocked(u.id, true)}>
-                Block
-              </button>
+      <div className="ll-table-wrap">
+        <table className="ll-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Status</th>
+              <th>Last login</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={5} className="ll-empty">
+                  Loading…
+                </td>
+              </tr>
+            ) : users.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="ll-empty">
+                  No {TAB_LABEL[tab].toLowerCase()} yet
+                </td>
+              </tr>
             ) : (
-              <button
-                type="button"
-                style={ui.btnGhost}
-                onClick={() => void setBlocked(u.id, false)}
-              >
-                Reactivate
-              </button>
+              users.map((u) => (
+                <tr key={u.id}>
+                  <td>
+                    <strong>{u.displayName}</strong>
+                  </td>
+                  <td style={{ color: 'var(--ll-muted)' }}>{u.email}</td>
+                  <td>
+                    <StatusBadge status={u.status} />
+                  </td>
+                  <td style={{ color: 'var(--ll-muted)', fontSize: '0.85rem' }}>
+                    {u.lastLoginAt
+                      ? new Date(u.lastLoginAt).toLocaleString()
+                      : '—'}
+                  </td>
+                  <td>
+                    <div className="ll-actions">
+                      {tab === 'GUIDE' ? (
+                        <button
+                          type="button"
+                          style={{ ...ui.btnGhost, ...ui.btnSm }}
+                          onClick={() => void openGuide(u.id)}
+                        >
+                          Historic
+                        </button>
+                      ) : null}
+                      {tab === 'BUSINESS' ? (
+                        <button
+                          type="button"
+                          style={{ ...ui.btnGhost, ...ui.btnSm }}
+                          onClick={() => void openBusiness(u.id)}
+                        >
+                          Historic
+                        </button>
+                      ) : null}
+                      {u.status === 'ACTIVE' ? (
+                        <button
+                          type="button"
+                          style={{ ...ui.btnDanger, ...ui.btnSm }}
+                          onClick={() => void setBlocked(u.id, true)}
+                        >
+                          Block
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          style={{ ...ui.btn, ...ui.btnSm }}
+                          onClick={() => void setBlocked(u.id, false)}
+                        >
+                          Reactivate
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))
             )}
-          </div>
-        </div>
-      ))}
+          </tbody>
+        </table>
+      </div>
 
       {detailGuide ? (
-        <div style={ui.card}>
-          <h3>Guide historic — {detailGuide.user.displayName}</h3>
+        <div style={{ ...ui.panel, marginTop: '1.25rem' }}>
+          <div className="ll-page-head">
+            <div>
+              <h2>Guide historic</h2>
+              <p className="ll-page-sub">{detailGuide.user.displayName}</p>
+            </div>
+            <button type="button" style={ui.btnGhost} onClick={() => setDetailGuide(null)}>
+              Close
+            </button>
+          </div>
           <p style={ui.muted}>
-            Places submitted: {detailGuide.historic.placeCount} · Tips:{' '}
-            {detailGuide.historic.tipCount}
+            Places submitted: <strong>{detailGuide.historic.placeCount}</strong>{' '}
+            · Tips: <strong>{detailGuide.historic.tipCount}</strong>
           </p>
-          <ul>
+          <ul style={{ margin: 0, paddingLeft: '1.1rem' }}>
             {detailGuide.historic.recentPlaces.map((p) => (
               <li key={p.id}>
                 {p.name} · {p.verificationStatus}
               </li>
             ))}
           </ul>
-          <button type="button" style={ui.btnGhost} onClick={() => setDetailGuide(null)}>
-            Close
-          </button>
         </div>
       ) : null}
 
       {detailBiz ? (
-        <div style={ui.card}>
-          <h3>Business historic — {detailBiz.user.displayName}</h3>
+        <div style={{ ...ui.panel, marginTop: '1.25rem' }}>
+          <div className="ll-page-head">
+            <div>
+              <h2>Business historic</h2>
+              <p className="ll-page-sub">{detailBiz.user.displayName}</p>
+            </div>
+            <button type="button" style={ui.btnGhost} onClick={() => setDetailBiz(null)}>
+              Close
+            </button>
+          </div>
           <p style={ui.muted}>
-            Claims: {detailBiz.historic.claimCount} · Owned places:{' '}
-            {detailBiz.historic.ownedPlaceCount}
+            Claims: <strong>{detailBiz.historic.claimCount}</strong> · Owned
+            places: <strong>{detailBiz.historic.ownedPlaceCount}</strong>
           </p>
-          <ul>
+          <ul style={{ margin: 0, paddingLeft: '1.1rem' }}>
             {detailBiz.historic.recentClaims.map((c) => (
               <li key={c.id}>
                 {c.place.name} · {c.status}
               </li>
             ))}
           </ul>
-          <button type="button" style={ui.btnGhost} onClick={() => setDetailBiz(null)}>
-            Close
-          </button>
         </div>
       ) : null}
     </div>

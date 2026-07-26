@@ -9,6 +9,7 @@ export function AdminDashboard() {
     reports: unknown[];
     guideApps: unknown[];
     claims: unknown[];
+    tips: unknown[];
   } | null>(null);
 
   useEffect(() => {
@@ -16,17 +17,41 @@ export function AdminDashboard() {
   }, []);
 
   return (
-    <div style={ui.page}>
-      <h1>Admin dashboard</h1>
-      <p style={ui.muted}>Operate Djerba MVP without raw DB edits.</p>
-      <div style={ui.row}>
+    <div style={ui.pageWide}>
+      <div className="ll-page-head">
+        <div>
+          <h1>Dashboard</h1>
+          <p className="ll-page-sub">
+            Snapshot of pending work for Djerba staging. Jump into moderation or
+            user ops without touching the database.
+          </p>
+        </div>
+        <Link to="/admin/moderation" style={{ ...ui.btn, textDecoration: 'none' }}>
+          Open moderation
+        </Link>
+      </div>
+
+      <div style={{ ...ui.grid2, marginTop: '1.5rem' }}>
         <Stat label="Pending places" value={queue?.places.length ?? '…'} />
+        <Stat label="Pending tips" value={queue?.tips?.length ?? '…'} />
         <Stat label="Open reports" value={queue?.reports.length ?? '…'} />
         <Stat label="Guide apps" value={queue?.guideApps.length ?? '…'} />
-        <Stat label="Claims" value={queue?.claims.length ?? '…'} />
+        <Stat label="Business claims" value={queue?.claims.length ?? '…'} />
       </div>
-      <div style={ui.card}>
-        <Link to="/admin/moderation">Open moderation queue →</Link>
+
+      <div style={{ ...ui.panel, marginTop: '0.5rem' }}>
+        <h2>Quick links</h2>
+        <div className="ll-actions">
+          <Link to="/admin/users" style={{ ...ui.btnGhost, textDecoration: 'none' }}>
+            Users & provisioning
+          </Link>
+          <Link to="/admin/ai-config" style={{ ...ui.btnGhost, textDecoration: 'none' }}>
+            AI model config
+          </Link>
+          <Link to="/admin/seed" style={{ ...ui.btnGhost, textDecoration: 'none' }}>
+            Seed status
+          </Link>
+        </div>
       </div>
     </div>
   );
@@ -34,9 +59,18 @@ export function AdminDashboard() {
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div style={{ ...ui.card, minWidth: 140 }}>
-      <div style={{ fontSize: 28, fontWeight: 800 }}>{value}</div>
-      <div style={ui.muted}>{label}</div>
+    <div style={{ ...ui.card, marginBottom: 0 }}>
+      <div
+        style={{
+          fontFamily: 'var(--ll-display)',
+          fontSize: '2rem',
+          fontWeight: 600,
+          letterSpacing: '-0.03em',
+        }}
+      >
+        {value}
+      </div>
+      <div style={{ ...ui.muted, marginTop: 4, fontWeight: 600 }}>{label}</div>
     </div>
   );
 }

@@ -57,81 +57,194 @@ export function ModerationPage() {
     await load();
   }
 
-  if (!queue) return <p>Loading…</p>;
+  if (!queue) return <p style={ui.muted}>Loading moderation queue…</p>;
 
   return (
-    <div style={ui.page}>
-      <h1>Moderation</h1>
-      {msg ? <p style={ui.muted}>{msg}</p> : null}
+    <div style={ui.pageWide}>
+      <div className="ll-page-head">
+        <div>
+          <h1>Moderation</h1>
+          <p className="ll-page-sub">
+            Approve or reject pending places, tips, guide applications, claims,
+            and reports.
+          </p>
+        </div>
+      </div>
+      {msg ? <div style={ui.alert}>{msg}</div> : null}
 
-      <Section title={`Places (${queue.places.length})`}>
-        {queue.places.map((p) => (
-          <Row
-            key={p.id}
-            title={p.name}
-            onApprove={() => void decide('place', p.id, 'approve')}
-            onReject={() => void decide('place', p.id, 'reject')}
-          />
-        ))}
+      <Section title="Places" count={queue.places.length}>
+        <QueueTable
+          empty="No pending places"
+          headers={['Name', 'Created', '']}
+          rows={queue.places.map((p) => (
+            <tr key={p.id}>
+              <td>
+                <strong>{p.name}</strong>
+              </td>
+              <td style={ui.muted}>{new Date(p.createdAt).toLocaleString()}</td>
+              <td>
+                <div className="ll-actions">
+                  <button
+                    type="button"
+                    style={{ ...ui.btn, ...ui.btnSm }}
+                    onClick={() => void decide('place', p.id, 'approve')}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    style={{ ...ui.btnDanger, ...ui.btnSm }}
+                    onClick={() => void decide('place', p.id, 'reject')}
+                  >
+                    Reject
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        />
       </Section>
 
-      <Section title={`Tips (${queue.tips.length})`}>
-        {queue.tips.map((t) => (
-          <Row
-            key={t.id}
-            title={t.title}
-            onApprove={() => void decide('tip', t.id, 'approve')}
-            onReject={() => void decide('tip', t.id, 'reject')}
-          />
-        ))}
+      <Section title="Tips" count={queue.tips.length}>
+        <QueueTable
+          empty="No pending tips"
+          headers={['Title', '']}
+          rows={queue.tips.map((t) => (
+            <tr key={t.id}>
+              <td>
+                <strong>{t.title}</strong>
+              </td>
+              <td>
+                <div className="ll-actions">
+                  <button
+                    type="button"
+                    style={{ ...ui.btn, ...ui.btnSm }}
+                    onClick={() => void decide('tip', t.id, 'approve')}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    style={{ ...ui.btnDanger, ...ui.btnSm }}
+                    onClick={() => void decide('tip', t.id, 'reject')}
+                  >
+                    Reject
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        />
       </Section>
 
-      <Section title={`Guide applications (${queue.guideApps.length})`}>
-        {queue.guideApps.map((g) => (
-          <Row
-            key={g.id}
-            title={`${g.user?.displayName ?? g.id} · ${g.user?.email ?? ''} · ${g.status}`}
-            onApprove={() => void decide('guide', g.id, 'approve')}
-            onReject={() => void decide('guide', g.id, 'reject')}
-          />
-        ))}
+      <Section title="Guide applications" count={queue.guideApps.length}>
+        <QueueTable
+          empty="No guide applications"
+          headers={['Applicant', 'Email', 'Status', '']}
+          rows={queue.guideApps.map((g) => (
+            <tr key={g.id}>
+              <td>
+                <strong>{g.user?.displayName ?? g.id.slice(0, 8)}</strong>
+              </td>
+              <td style={ui.muted}>{g.user?.email ?? '—'}</td>
+              <td>
+                <span className="ll-badge ll-badge--warn">{g.status}</span>
+              </td>
+              <td>
+                <div className="ll-actions">
+                  <button
+                    type="button"
+                    style={{ ...ui.btn, ...ui.btnSm }}
+                    onClick={() => void decide('guide', g.id, 'approve')}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    style={{ ...ui.btnDanger, ...ui.btnSm }}
+                    onClick={() => void decide('guide', g.id, 'reject')}
+                  >
+                    Reject
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        />
       </Section>
 
-      <Section title={`Business claims (${queue.claims.length})`}>
-        {queue.claims.map((c) => (
-          <Row
-            key={c.id}
-            title={`Claim ${c.id.slice(0, 8)} · place ${c.placeId.slice(0, 8)}`}
-            onApprove={() => void decide('claim', c.id, 'approve')}
-            onReject={() => void decide('claim', c.id, 'reject')}
-          />
-        ))}
+      <Section title="Business claims" count={queue.claims.length}>
+        <QueueTable
+          empty="No pending claims"
+          headers={['Claim', 'Place', 'Business', '']}
+          rows={queue.claims.map((c) => (
+            <tr key={c.id}>
+              <td>
+                <code>{c.id.slice(0, 8)}</code>
+              </td>
+              <td>
+                <code>{c.placeId.slice(0, 8)}</code>
+              </td>
+              <td>
+                <code>{c.businessId.slice(0, 8)}</code>
+              </td>
+              <td>
+                <div className="ll-actions">
+                  <button
+                    type="button"
+                    style={{ ...ui.btn, ...ui.btnSm }}
+                    onClick={() => void decide('claim', c.id, 'approve')}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    style={{ ...ui.btnDanger, ...ui.btnSm }}
+                    onClick={() => void decide('claim', c.id, 'reject')}
+                  >
+                    Reject
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        />
       </Section>
 
-      <Section title={`Reports (${queue.reports.length})`}>
-        {queue.reports.map((r) => (
-          <div key={r.id} style={ui.card}>
-            <strong>
-              {r.targetType} · {r.reason}
-            </strong>
-            <div style={ui.row}>
-              <button
-                type="button"
-                style={ui.btn}
-                onClick={() => void resolveReport(r.id, 'RESOLVED')}
-              >
-                Resolve
-              </button>
-              <button
-                type="button"
-                style={ui.btnGhost}
-                onClick={() => void resolveReport(r.id, 'DISMISSED')}
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        ))}
+      <Section title="Reports" count={queue.reports.length}>
+        <QueueTable
+          empty="No open reports"
+          headers={['Target', 'Reason', '']}
+          rows={queue.reports.map((r) => (
+            <tr key={r.id}>
+              <td>
+                <strong>{r.targetType}</strong>
+                <div style={{ ...ui.muted, fontSize: '0.8rem' }}>
+                  {r.targetId.slice(0, 8)}
+                </div>
+              </td>
+              <td>{r.reason}</td>
+              <td>
+                <div className="ll-actions">
+                  <button
+                    type="button"
+                    style={{ ...ui.btn, ...ui.btnSm }}
+                    onClick={() => void resolveReport(r.id, 'RESOLVED')}
+                  >
+                    Resolve
+                  </button>
+                  <button
+                    type="button"
+                    style={{ ...ui.btnGhost, ...ui.btnSm }}
+                    onClick={() => void resolveReport(r.id, 'DISMISSED')}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        />
       </Section>
     </div>
   );
@@ -139,39 +252,52 @@ export function ModerationPage() {
 
 function Section({
   title,
+  count,
   children,
 }: {
   title: string;
+  count: number;
   children: ReactNode;
 }) {
   return (
-    <section style={{ marginBottom: 24 }}>
-      <h2>{title}</h2>
+    <section style={{ ...ui.panel, paddingTop: '1rem' }}>
+      <div className="ll-page-head" style={{ marginBottom: '0.85rem' }}>
+        <h2 style={{ margin: 0 }}>
+          {title}{' '}
+          <span style={{ ...ui.muted, fontFamily: 'var(--ll-font)', fontSize: '0.95rem' }}>
+            ({count})
+          </span>
+        </h2>
+      </div>
       {children}
     </section>
   );
 }
 
-function Row({
-  title,
-  onApprove,
-  onReject,
+function QueueTable({
+  headers,
+  rows,
+  empty,
 }: {
-  title: string;
-  onApprove: () => void;
-  onReject: () => void;
+  headers: string[];
+  rows: ReactNode[];
+  empty: string;
 }) {
+  if (rows.length === 0) {
+    return <p className="ll-empty">{empty}</p>;
+  }
   return (
-    <div style={ui.card}>
-      <div style={{ marginBottom: 8 }}>{title}</div>
-      <div style={ui.row}>
-        <button type="button" style={ui.btn} onClick={onApprove}>
-          Approve
-        </button>
-        <button type="button" style={ui.btnDanger} onClick={onReject}>
-          Reject
-        </button>
-      </div>
+    <div className="ll-table-wrap" style={{ boxShadow: 'none' }}>
+      <table className="ll-table">
+        <thead>
+          <tr>
+            {headers.map((h) => (
+              <th key={h || 'actions'}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>{rows}</tbody>
+      </table>
     </div>
   );
 }

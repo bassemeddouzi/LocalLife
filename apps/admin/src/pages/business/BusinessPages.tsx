@@ -6,18 +6,59 @@ import { ui } from '../../ui';
 export function BusinessHomePage() {
   return (
     <div style={ui.page}>
-      <h1>Business portal</h1>
-      <p style={ui.muted}>Claim places and edit allowed contact fields. No payments.</p>
-      <div style={ui.card}>
-        <Link to="/business/profile">Create / update profile →</Link>
+      <div className="ll-page-head">
+        <div>
+          <h1>Business portal</h1>
+          <p className="ll-page-sub">
+            Claim places and edit allowed contact fields. No payments in MVP.
+          </p>
+        </div>
       </div>
-      <div style={ui.card}>
-        <Link to="/business/claim">Claim a place →</Link>
-      </div>
-      <div style={ui.card}>
-        <Link to="/business/places">Manage linked places →</Link>
+
+      <div style={{ ...ui.grid2, marginTop: '1.25rem' }}>
+        <LinkCard
+          to="/business/profile"
+          title="Profile"
+          body="Create or update your business contact profile."
+        />
+        <LinkCard
+          to="/business/claim"
+          title="Claim a place"
+          body="Request ownership of a listed venue."
+        />
+        <LinkCard
+          to="/business/places"
+          title="My places"
+          body="Manage verified places after Admin approval."
+        />
       </div>
     </div>
+  );
+}
+
+function LinkCard({
+  to,
+  title,
+  body,
+}: {
+  to: string;
+  title: string;
+  body: string;
+}) {
+  return (
+    <Link
+      to={to}
+      style={{
+        ...ui.card,
+        marginBottom: 0,
+        textDecoration: 'none',
+        color: 'inherit',
+        display: 'block',
+      }}
+    >
+      <strong style={{ fontSize: '1.05rem' }}>{title}</strong>
+      <p style={{ ...ui.muted, margin: '0.4rem 0 0' }}>{body}</p>
+    </Link>
   );
 }
 
@@ -47,7 +88,7 @@ export function BusinessProfilePage() {
         method: 'POST',
         body: JSON.stringify({ displayName, contactEmail, contactPhone }),
       });
-      setMsg('Profile saved. Re-login if you just upgraded from CLIENT.');
+      setMsg('Profile saved.');
     } catch (err) {
       setMsg(err instanceof Error ? err.message : String(err));
     }
@@ -55,8 +96,14 @@ export function BusinessProfilePage() {
 
   return (
     <div style={ui.page}>
-      <h1>Business profile</h1>
-      <form onSubmit={onSubmit} style={ui.card}>
+      <div className="ll-page-head">
+        <div>
+          <h1>Business profile</h1>
+          <p className="ll-page-sub">Contact details shown to ops and claim flows.</p>
+        </div>
+      </div>
+      {msg ? <div style={ui.alert}>{msg}</div> : null}
+      <form onSubmit={onSubmit} style={ui.panel}>
         <label>
           Display name
           <input
@@ -83,10 +130,9 @@ export function BusinessProfilePage() {
           />
         </label>
         <button type="submit" style={ui.btn}>
-          Save
+          Save profile
         </button>
       </form>
-      {msg ? <p>{msg}</p> : null}
     </div>
   );
 }
@@ -137,8 +183,16 @@ export function BusinessClaimPage() {
 
   return (
     <div style={ui.page}>
-      <h1>Claim place</h1>
-      <form onSubmit={onSubmit} style={ui.card}>
+      <div className="ll-page-head">
+        <div>
+          <h1>Claim place</h1>
+          <p className="ll-page-sub">
+            Submit evidence; Admin verifies before the place is linked.
+          </p>
+        </div>
+      </div>
+      {msg ? <div style={ui.alert}>{msg}</div> : null}
+      <form onSubmit={onSubmit} style={ui.panel}>
         <label>
           Place
           <select
@@ -167,7 +221,6 @@ export function BusinessClaimPage() {
           Submit claim
         </button>
       </form>
-      {msg ? <p>{msg}</p> : null}
     </div>
   );
 }
@@ -204,29 +257,71 @@ export function BusinessPlacesPage() {
   const verified = (profile?.claims ?? []).filter((c) => c.status === 'VERIFIED');
 
   return (
-    <div style={ui.page}>
-      <h1>My places</h1>
-      <label>
-        New phone (allowed edit)
-        <input
-          style={ui.input}
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-        />
-      </label>
-      {verified.map((c) => (
-        <div key={c.id} style={ui.card}>
-          <strong>{c.placeId.slice(0, 8)}</strong>
-          <div style={ui.muted}>{c.status}</div>
-          <button type="button" style={ui.btn} onClick={() => void edit(c.placeId)}>
-            Update phone
-          </button>
+    <div style={ui.pageWide}>
+      <div className="ll-page-head">
+        <div>
+          <h1>My places</h1>
+          <p className="ll-page-sub">
+            Verified claims only. Phone is the allowed contact edit in MVP.
+          </p>
         </div>
-      ))}
-      {!verified.length ? (
-        <p style={ui.muted}>No verified claims yet — wait for Admin approval.</p>
-      ) : null}
-      {msg ? <p>{msg}</p> : null}
+      </div>
+
+      {msg ? <div style={ui.alert}>{msg}</div> : null}
+
+      <div style={{ ...ui.panel, marginBottom: '1rem' }}>
+        <label>
+          New phone (allowed edit)
+          <input
+            style={ui.input}
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+        </label>
+      </div>
+
+      <div className="ll-table-wrap">
+        <table className="ll-table">
+          <thead>
+            <tr>
+              <th>Place</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {verified.length === 0 ? (
+              <tr>
+                <td colSpan={3}>
+                  <p className="ll-empty">
+                    No verified claims yet — wait for Admin approval
+                  </p>
+                </td>
+              </tr>
+            ) : (
+              verified.map((c) => (
+                <tr key={c.id}>
+                  <td>
+                    <strong>{c.place?.name ?? c.placeId.slice(0, 8)}</strong>
+                  </td>
+                  <td>
+                    <span className="ll-badge ll-badge--ok">{c.status}</span>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      style={{ ...ui.btn, ...ui.btnSm }}
+                      onClick={() => void edit(c.placeId)}
+                    >
+                      Update phone
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
