@@ -7,9 +7,11 @@ COPY apps/admin/package.json apps/admin/
 RUN pnpm install --filter @locallife/admin... --frozen-lockfile
 COPY apps/admin apps/admin
 WORKDIR /app/apps/admin
-# Staging API (override in Railway build args if needed)
+# Build-time Vite vars (set on Railway Admin service → Redeploy)
 ARG VITE_API_URL=https://locallife-production.up.railway.app
+ARG VITE_MAPBOX_TOKEN=
 ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_MAPBOX_TOKEN=$VITE_MAPBOX_TOKEN
 RUN pnpm run build && test -f dist/index.html
 
 FROM nginx:1.27-alpine

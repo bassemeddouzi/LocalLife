@@ -17,7 +17,10 @@ API already live: `https://locallife-production.up.railway.app`
 5. Root Directory: leave empty / `/` (monorepo root — Dockerfile copies from root).
 6. Variables:
    - `VITE_API_URL=https://locallife-production.up.railway.app`
+   - `VITE_MAPBOX_TOKEN=<your Mapbox public token>` — **required for Admin Map**
    - **No** `DATABASE_URL` on Admin
+
+> Vite bakes `VITE_*` at **build** time. After adding/changing the token → **Redeploy** Admin (clear build cache if the map still says token missing).
 7. Start Command: leave **empty** (nginx CMD from Dockerfile).
 8. **Redeploy** (Clear build cache if needed).
 9. **Networking → Generate Domain** if not done.

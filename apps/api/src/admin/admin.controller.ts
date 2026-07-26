@@ -33,6 +33,7 @@ import { Auth, CurrentUser, AuthUser } from '../auth/auth.decorators';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../shared/audit.service';
 import { MemoryCacheService } from '../shared/memory-cache.service';
+import { zoneForCitySlug } from './city-zones';
 import type { Request } from 'express';
 
 class RejectDto {
@@ -741,6 +742,117 @@ export class AdminController {
       requestId: req.requestId,
     });
     return after;
+  }
+
+  @Get('map-overview')
+  @Auth(UserRole.ADMIN)
+  async mapOverview() {
+    const [cities, guidePlaces, businessPlaces] = await Promise.all([
+      this.prisma.city.findMany({
+        where: { status: 'ACTIVE' },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          latitude: true,
+          longitude: true,
+          status: true,
+        },
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.place.findMany({
+        where: {
+          deletedAt: null,
+          createdBy: { role: UserRole.GUIDE },
+        },
+        take: 500,
+        orderBy: { updatedAt: 'desc' },
+        select: {
+          id: true,
+          name: true,
+          latitude: true,
+          longitude: true,
+          verificationStatus: true,
+          cityId: true,
+          createdByUserId: true,
+          createdBy: {
+            select: { id: true, displayName: true, email: true },
+          },
+        },
+      }),
+      this.prisma.place.findMany({
+        where: {
+          deletedAt: null,
+          ownedByBusinessId: { not: null },
+        },
+        take: 500,
+        orderBy: { updatedAt: 'desc' },
+        select: {
+          id: true,
+          name: true,
+          latitude: true,
+          longitude: true,
+          verificationStatus: true,
+          cityId: true,
+          ownedByBusinessId: true,
+          ownedByBusiness: {
+            select: { id: true, displayName: true },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      activeCities: cities.map((c) => {
+        const zone = zoneForCitySlug(c.slug);
+        return {
+          id: c.id,
+          name: c.name,
+          slug: c.slug,
+          latitude: c.latitude != null ? Number(c.latitude) : null,
+          longitude: c.longitude != null ? Number(c.longitude) : null,
+          status: c.status,
+          zone: zone
+            ? {
+                center: zone.center,
+                zoom: zone.zoom,
+                polygon: zone.polygon,
+              }
+            : null,
+        };
+      }),
+      guidePlaces: guidePlaces.map((p) => ({
+        id: p.id,
+        name: p.name,
+        latitude: Number(p.latitude),
+        longitude: Number(p.longitude),
+        verificationStatus: p.verificationStatus,
+        cityId: p.cityId,
+        kind: 'guide' as const,
+        guide: p.createdBy
+          ? {
+              userId: p.createdBy.id,
+              displayName: p.createdBy.displayName,
+              email: p.createdBy.email,
+            }
+          : null,
+      })),
+      businessPlaces: businessPlaces.map((p) => ({
+        id: p.id,
+        name: p.name,
+        latitude: Number(p.latitude),
+        longitude: Number(p.longitude),
+        verificationStatus: p.verificationStatus,
+        cityId: p.cityId,
+        kind: 'business' as const,
+        business: p.ownedByBusiness
+          ? {
+              id: p.ownedByBusiness.id,
+              displayName: p.ownedByBusiness.displayName,
+            }
+          : null,
+      })),
+    };
   }
 
   @Get('seed-status')

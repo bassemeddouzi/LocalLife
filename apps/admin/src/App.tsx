@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
 import { LoginPage } from './pages/LoginPage';
 import {
   AdminShell,
@@ -34,6 +35,10 @@ import {
 import { getPortalUser } from './api';
 import './App.css';
 
+const MapPage = lazy(() =>
+  import('./pages/admin/MapPage').then((m) => ({ default: m.MapPage })),
+);
+
 function HomeRedirect() {
   const user = getPortalUser();
   if (!user) return <Navigate to="/login" replace />;
@@ -61,6 +66,14 @@ export default function App() {
           }
         >
           <Route index element={<AdminDashboard />} />
+          <Route
+            path="map"
+            element={
+              <Suspense fallback={<p style={{ color: 'var(--ll-muted)' }}>Loading map…</p>}>
+                <MapPage />
+              </Suspense>
+            }
+          />
           <Route path="moderation" element={<ModerationPage />} />
           <Route path="users" element={<UsersPage />} />
           <Route path="ai-config" element={<AiConfigPage />} />

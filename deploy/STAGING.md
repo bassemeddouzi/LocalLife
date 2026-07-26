@@ -56,9 +56,10 @@ See full steps: [ADMIN.md](./ADMIN.md)
 1. Push repo (needs `apps/admin/railway.toml`).
 2. Admin service → Config File: **`/apps/admin/railway.toml`**
 3. Variable: `VITE_API_URL=https://locallife-production.up.railway.app`
-4. Generate domain for Admin.
-5. API service → Config File: **`/apps/api/railway.toml`** (after root config removed).
-6. Update API `CORS_ORIGINS` → Redeploy API.
+4. Variable: `VITE_MAPBOX_TOKEN=<Mapbox public token>` (Admin Map page — rebuild needed)
+5. Generate domain for Admin.
+6. API service → Config File: **`/apps/api/railway.toml`** (after root config removed).
+7. Update API `CORS_ORIGINS` → Redeploy API.
 
 ## 5. Point mobile to staging
 EAS profile `staging` uses `EXPO_PUBLIC_API_URL`.

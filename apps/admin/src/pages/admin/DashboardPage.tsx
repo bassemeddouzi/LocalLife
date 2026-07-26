@@ -42,6 +42,9 @@ export function AdminDashboard() {
       <div style={{ ...ui.panel, marginTop: '0.5rem' }}>
         <h2>Quick links</h2>
         <div className="ll-actions">
+          <Link to="/admin/map" style={{ ...ui.btnGhost, textDecoration: 'none' }}>
+            Service map
+          </Link>
           <Link to="/admin/users" style={{ ...ui.btnGhost, textDecoration: 'none' }}>
             Users & provisioning
           </Link>

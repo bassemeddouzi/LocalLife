@@ -107,6 +107,7 @@ export function AdminShell() {
       eyebrow="Admin console"
       links={[
         { to: '/admin', label: 'Dashboard', end: true },
+        { to: '/admin/map', label: 'Map' },
         { to: '/admin/moderation', label: 'Moderation' },
         { to: '/admin/users', label: 'Users' },
         { to: '/admin/ai-config', label: 'AI config' },

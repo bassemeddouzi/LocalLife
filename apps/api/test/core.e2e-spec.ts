@@ -167,6 +167,19 @@ describe('Core API Gate (e2e)', () => {
       .get(`/v1/places/${pendingPlaceId}`)
       .expect(404);
 
+    const mapOverview = await request(app.getHttpServer())
+      .get('/v1/admin/map-overview')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const mapBody = mapOverview.body as {
+      activeCities: Array<{ slug: string; zone: unknown }>;
+      guidePlaces: Array<{ id: string }>;
+    };
+    expect(mapBody.activeCities.some((c) => c.slug === 'djerba' && c.zone)).toBe(
+      true,
+    );
+    expect(mapBody.guidePlaces.some((p) => p.id === pendingPlaceId)).toBe(true);
+
     await request(app.getHttpServer())
       .post(`/v1/admin/content/place/${pendingPlaceId}/approve`)
       .set('Authorization', `Bearer ${adminToken}`)
