@@ -11,23 +11,23 @@ importers:
   apps/admin:
     dependencies:
       react:
-        specifier: ^19.1.0
-        version: 19.2.3
+        specifier: 19.2.8
+        version: 19.2.8
       react-dom:
-        specifier: ^19.1.0
-        version: 19.2.8(react@19.2.3)
+        specifier: 19.2.8
+        version: 19.2.8(react@19.2.8)
       react-router-dom:
         specifier: ^7.18.1
-        version: 7.18.1(react-dom@19.2.8(react@19.2.3))(react@19.2.3)
+        version: 7.18.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
     devDependencies:
       '@eslint/js':
         specifier: ^9.25.0
         version: 9.39.5
       '@types/react':
-        specifier: ^19.1.2
+        specifier: ^19.2.3
         version: 19.2.17
       '@types/react-dom':
-        specifier: ^19.1.2
+        specifier: ^19.2.3
         version: 19.2.3(@types/react@19.2.17)
       '@types/react-router-dom':
         specifier: ^5.3.3
@@ -4580,6 +4580,10 @@ packages:
 
   react@19.2.3:
     resolution: {integrity: sha512-Ku/hhYbVjOQnXDZFv2+RibmLFGwFdeeKHFcOTlrt7xplBnya5OGn/hIRDsqDiSUcfORsDC7MPxwork8jBwsIWA==}
+    engines: {node: '>=0.10.0'}
+
+  react@19.2.8:
+    resolution: {integrity: sha512-PWaYA1L/q9u2u7xYQi+Y3L3Yfnie7XyLeaJICV1MGD6LprsBxcAqGjYyr0eY3p+QdsA+x/Irkt4Qif8D63+Sbw==}
     engines: {node: '>=0.10.0'}
 
   readable-stream@3.6.2:
@@ -10481,6 +10485,12 @@ snapshots:
     dependencies:
       react: 19.2.3
       scheduler: 0.27.0
+    optional: true
+
+  react-dom@19.2.8(react@19.2.8):
+    dependencies:
+      react: 19.2.8
+      scheduler: 0.27.0
 
   react-freeze@1.0.4(react@19.2.3):
     dependencies:
@@ -10563,21 +10573,23 @@ snapshots:
 
   react-refresh@0.17.0: {}
 
-  react-router-dom@7.18.1(react-dom@19.2.8(react@19.2.3))(react@19.2.3):
+  react-router-dom@7.18.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:
-      react: 19.2.3
-      react-dom: 19.2.8(react@19.2.3)
-      react-router: 7.18.1(react-dom@19.2.8(react@19.2.3))(react@19.2.3)
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
+      react-router: 7.18.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
 
-  react-router@7.18.1(react-dom@19.2.8(react@19.2.3))(react@19.2.3):
+  react-router@7.18.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:
       cookie: 1.1.1
-      react: 19.2.3
+      react: 19.2.8
       set-cookie-parser: 2.7.2
     optionalDependencies:
-      react-dom: 19.2.8(react@19.2.3)
+      react-dom: 19.2.8(react@19.2.8)
 
   react@19.2.3: {}
+
+  react@19.2.8: {}
 
   readable-stream@3.6.2:
     dependencies:
