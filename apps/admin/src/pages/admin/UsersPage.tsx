@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../../api';
 import { ui } from '../../ui';
 
@@ -86,6 +87,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export function UsersPage() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('CLIENT');
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -465,13 +467,32 @@ export function UsersPage() {
                   <td>
                     <div className="ll-actions">
                       {tab === 'GUIDE' ? (
-                        <button
-                          type="button"
-                          style={{ ...ui.btnGhost, ...ui.btnSm }}
-                          onClick={() => void openGuide(u.id)}
-                        >
-                          Historic
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            style={{ ...ui.btnGhost, ...ui.btnSm }}
+                            onClick={() => void openGuide(u.id)}
+                          >
+                            Historic
+                          </button>
+                          <button
+                            type="button"
+                            style={{ ...ui.btn, ...ui.btnSm }}
+                            title={
+                              u.guideProfile?.primaryDistrictId ||
+                              u.guideProfile?.baseCityId
+                                ? 'Open map focused on this Guide'
+                                : 'No zone yet — map will explain what is missing'
+                            }
+                            onClick={() =>
+                              navigate(
+                                `/admin/map?guide=${encodeURIComponent(u.id)}`,
+                              )
+                            }
+                          >
+                            Show on map
+                          </button>
+                        </>
                       ) : null}
                       {tab === 'BUSINESS' ? (
                         <button
@@ -515,9 +536,22 @@ export function UsersPage() {
               <h2>Guide historic</h2>
               <p className="ll-page-sub">{detailGuide.user.displayName}</p>
             </div>
-            <button type="button" style={ui.btnGhost} onClick={() => setDetailGuide(null)}>
-              Close
-            </button>
+            <div className="ll-actions">
+              <button type="button" style={ui.btnGhost} onClick={() => setDetailGuide(null)}>
+                Close
+              </button>
+              <button
+                type="button"
+                style={ui.btn}
+                onClick={() =>
+                  navigate(
+                    `/admin/map?guide=${encodeURIComponent(detailGuide.user.id)}`,
+                  )
+                }
+              >
+                Show on map
+              </button>
+            </div>
           </div>
           <p style={ui.muted}>
             Zone:{' '}

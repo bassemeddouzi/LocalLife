@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { api } from '../../api';
@@ -52,6 +53,8 @@ const TOKEN =
 const TOKEN_OK = Boolean(TOKEN && /^pk\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.test(TOKEN));
 
 export function MapPage() {
+  const [searchParams] = useSearchParams();
+  const focusGuideId = searchParams.get('guide');
   const mapNode = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
@@ -59,6 +62,7 @@ export function MapPage() {
   const [error, setError] = useState('');
   const [mapError, setMapError] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
+  const [focusMsg, setFocusMsg] = useState('');
   const [showGuideBases, setShowGuideBases] = useState(true);
   const [showGuides, setShowGuides] = useState(false);
   const [showBusiness, setShowBusiness] = useState(true);
@@ -193,14 +197,15 @@ export function MapPage() {
 
     if (showGuideBases) {
       for (const g of data.guides ?? []) {
+        const isFocus = focusGuideId === g.userId;
         addMarker(
           g.longitude,
           g.latitude,
-          '#ea580c',
+          isFocus ? '#c2410c' : '#ea580c',
           g.displayName,
           `Guide · ${g.districtName}${g.citySlug ? ` · ${g.citySlug}` : ''} · ${g.email}`,
           `base-${g.userId}`,
-          20,
+          isFocus ? 26 : 20,
         );
       }
     }
@@ -228,7 +233,36 @@ export function MapPage() {
         );
       }
     }
-  }, [data, mapReady, showGuideBases, showGuides, showBusiness]);
+
+    if (focusGuideId) {
+      const hit = (data.guides ?? []).find((g) => g.userId === focusGuideId);
+      if (hit) {
+        setFocusMsg(
+          `Focused: ${hit.displayName} · ${hit.districtName}${hit.citySlug ? ` · ${hit.citySlug}` : ''}`,
+        );
+        setSelected(
+          `${hit.displayName}\nGuide · ${hit.districtName} · ${hit.email}`,
+        );
+        map.flyTo({
+          center: [hit.longitude, hit.latitude],
+          zoom: 12.5,
+          essential: true,
+        });
+      } else {
+        setFocusMsg('');
+        setSelected(null);
+      }
+    }
+  }, [data, mapReady, showGuideBases, showGuides, showBusiness, focusGuideId]);
+
+  useEffect(() => {
+    if (!focusGuideId || !data) return;
+    const hit = (data.guides ?? []).find((g) => g.userId === focusGuideId);
+    if (hit) return;
+    setFocusMsg(
+      `Guide ${focusGuideId.slice(0, 8)}… is in Users but not on the map — missing city/district zone. Open Users → Historic → set district → Save zone, then try Show on map again.`,
+    );
+  }, [focusGuideId, data]);
 
   if (!TOKEN) {
     return (
@@ -283,7 +317,21 @@ export function MapPage() {
 
       {error ? <div style={ui.alertWarn}>{error}</div> : null}
       {mapError ? <div style={ui.alertWarn}>{mapError}</div> : null}
-      {data && (data.guides?.length ?? 0) === 0 ? (
+      {focusMsg ? (
+        <div
+          style={
+            focusMsg.startsWith('Focused')
+              ? ui.alert
+              : ui.alertWarn
+          }
+        >
+          {focusMsg}{' '}
+          {!focusMsg.startsWith('Focused') ? (
+            <Link to="/admin/users">Go to Users</Link>
+          ) : null}
+        </div>
+      ) : null}
+      {data && (data.guides?.length ?? 0) === 0 && !focusGuideId ? (
         <div style={ui.alertWarn}>
           No Guide bases yet. Open Users → Guides → set a district (or reseed
           API), then refresh this map.
