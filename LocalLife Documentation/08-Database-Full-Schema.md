@@ -329,7 +329,18 @@ placeId, locale, name, summary, description — unique(placeId, locale)
 
 ### BusinessProfile
 
-id, userId unique, legalName, displayName, contactEmail, contactPhone, verificationStatus, billingInfo jsonb nullable
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid | |
+| userId | uuid unique | |
+| legalName | text nullable | |
+| displayName | text | |
+| contactEmail, contactPhone | text nullable | |
+| verificationStatus | VerificationStatus | |
+| billingInfo | jsonb nullable | |
+| baseCityId | uuid nullable | FK City — where the Business operates |
+| primaryDistrictId | uuid nullable | FK District — Admin map pin = district centroid |
+| createdAt, updatedAt | | |
 
 ### BusinessPlaceClaim
 

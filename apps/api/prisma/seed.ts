@@ -29,6 +29,7 @@ const CATEGORIES: Array<{
 async function main() {
   const adminPassword = await argon2.hash('Admin123!');
   const guidePassword = await argon2.hash('Guide123!');
+  const businessPassword = await argon2.hash('Business123!');
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@locallife.local' },
@@ -56,6 +57,26 @@ async function main() {
           bio: 'Seed guide account for Djerba content',
           languages: ['en', 'fr', 'ar'],
           status: 'APPROVED',
+        },
+      },
+    },
+  });
+
+  const business = await prisma.user.upsert({
+    where: { email: 'business@locallife.local' },
+    update: { role: UserRole.BUSINESS, passwordHash: businessPassword },
+    create: {
+      email: 'business@locallife.local',
+      displayName: 'Djerba Fake Cafe',
+      role: UserRole.BUSINESS,
+      passwordHash: businessPassword,
+      preference: { create: {} },
+      businessProfile: {
+        create: {
+          displayName: 'Djerba Fake Cafe',
+          legalName: 'Djerba Fake Cafe SARL',
+          contactEmail: 'business@locallife.local',
+          verificationStatus: 'APPROVED',
         },
       },
     },
@@ -238,8 +259,36 @@ async function main() {
     },
   });
 
+  const midoun = await prisma.district.findUnique({
+    where: { cityId_slug: { cityId: city.id, slug: 'midoun' } },
+  });
+
+  await prisma.businessProfile.upsert({
+    where: { userId: business.id },
+    update: {
+      verificationStatus: 'APPROVED',
+      displayName: 'Djerba Fake Cafe',
+      baseCityId: city.id,
+      primaryDistrictId: midoun?.id ?? houmtSouk?.id,
+    },
+    create: {
+      userId: business.id,
+      displayName: 'Djerba Fake Cafe',
+      legalName: 'Djerba Fake Cafe SARL',
+      contactEmail: 'business@locallife.local',
+      verificationStatus: 'APPROVED',
+      baseCityId: city.id,
+      primaryDistrictId: midoun?.id ?? houmtSouk?.id,
+    },
+  });
+
   // Backfill any existing Guides missing a base city (district stays optional until Admin edits)
   await prisma.guideProfile.updateMany({
+    where: { baseCityId: null },
+    data: { baseCityId: city.id },
+  });
+
+  await prisma.businessProfile.updateMany({
     where: { baseCityId: null },
     data: { baseCityId: city.id },
   });
@@ -272,6 +321,7 @@ async function main() {
   console.log('Seed complete');
   console.log('ADMIN:', admin.email, 'Admin123!');
   console.log('GUIDE:', guide.email, 'Guide123!');
+  console.log('BUSINESS:', business.email, 'Business123!');
   console.log('Djerba pack:', pack);
   void VerificationStatus;
 }

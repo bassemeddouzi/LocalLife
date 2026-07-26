@@ -351,6 +351,7 @@ model City {
   conversations    Conversation[]
   districts        District[]
   guideProfilesBase GuideProfile[] @relation("GuideBaseCity")
+  businessProfilesBase BusinessProfile[] @relation("BusinessBaseCity")
 
   @@unique([countryId, slug])
   @@index([status])
@@ -367,7 +368,8 @@ model District {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  guideProfiles GuideProfile[] @relation("GuidePrimaryDistrict")
+  guideProfiles    GuideProfile[]    @relation("GuidePrimaryDistrict")
+  businessProfiles BusinessProfile[] @relation("BusinessPrimaryDistrict")
 
   @@unique([cityId, slug])
   @@index([cityId])
@@ -483,11 +485,18 @@ model BusinessProfile {
   contactPhone         String?
   verificationStatus   VerificationStatus @default(PENDING)
   billingInfo          Json?
+  baseCityId           String?
+  baseCity             City?              @relation("BusinessBaseCity", fields: [baseCityId], references: [id])
+  primaryDistrictId    String?
+  primaryDistrict      District?          @relation("BusinessPrimaryDistrict", fields: [primaryDistrictId], references: [id])
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 
   places Place[]
   claims BusinessPlaceClaim[]
+
+  @@index([baseCityId])
+  @@index([primaryDistrictId])
 }
 
 model BusinessPlaceClaim {

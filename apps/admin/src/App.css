@@ -248,6 +248,14 @@ label {
   background: #c2410c;
 }
 
+.ll-btn-map--biz {
+  background: #7c3aed;
+}
+
+.ll-btn-map--biz:hover {
+  background: #6d28d9;
+}
+
 @media (max-width: 900px) {
   .ll-shell-layout {
     grid-template-columns: 1fr !important;

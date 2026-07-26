@@ -86,6 +86,7 @@
 | Real Djerba media | Uploaded later via **Guide account** |
 | Guide from day one | **Admin creates** Guide (or seed `guide@locallife.local`) — no self-serve Guide signup by default (`FF_GUIDE_SELF_APPLY=false`) |
 | Guide ops location | **Admin-assigned** `baseCityId` + `primaryDistrictId` (district centroid on Admin map). New Guides require both. |
+| Business ops location | **Same pattern** as Guides — Admin-assigned city + district; Map purple pins. Seed: `business@locallife.local` / `Business123!` (Midoun). |
 
 ---
 

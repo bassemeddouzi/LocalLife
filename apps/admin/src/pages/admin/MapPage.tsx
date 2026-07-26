@@ -29,6 +29,16 @@ type MapOverview = {
     districtName: string;
     citySlug: string | null;
   }>;
+  businesses: Array<{
+    userId: string;
+    displayName: string;
+    email: string;
+    status: string;
+    latitude: number;
+    longitude: number;
+    districtName: string;
+    citySlug: string | null;
+  }>;
   guidePlaces: Array<{
     id: string;
     name: string;
@@ -55,6 +65,7 @@ const TOKEN_OK = Boolean(TOKEN && /^pk\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.test(TOK
 export function MapPage() {
   const [searchParams] = useSearchParams();
   const focusGuideId = searchParams.get('guide');
+  const focusBusinessId = searchParams.get('business');
   const mapNode = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
@@ -64,8 +75,9 @@ export function MapPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [focusMsg, setFocusMsg] = useState('');
   const [showGuideBases, setShowGuideBases] = useState(true);
+  const [showBusinessBases, setShowBusinessBases] = useState(true);
   const [showGuides, setShowGuides] = useState(false);
-  const [showBusiness, setShowBusiness] = useState(true);
+  const [showBusiness, setShowBusiness] = useState(false);
   const [mapReady, setMapReady] = useState(false);
 
   useEffect(() => {
@@ -75,27 +87,45 @@ export function MapPage() {
   }, []);
 
   useEffect(() => {
-    if (!data || focusGuideId) return;
-    void api<Array<{ id: string; displayName: string }>>(
-      '/v1/admin/users?role=GUIDE',
-    )
-      .then((rows) => {
-        const onMap = new Set((data.guides ?? []).map((g) => g.userId));
-        const missing = rows.filter((u) => !onMap.has(u.id));
-        if (missing.length === 0) {
+    if (!data || focusGuideId || focusBusinessId) return;
+    void Promise.all([
+      api<Array<{ id: string; displayName: string }>>('/v1/admin/users?role=GUIDE'),
+      api<Array<{ id: string; displayName: string }>>(
+        '/v1/admin/users?role=BUSINESS',
+      ),
+    ])
+      .then(([guides, businesses]) => {
+        const onMapG = new Set((data.guides ?? []).map((g) => g.userId));
+        const onMapB = new Set((data.businesses ?? []).map((b) => b.userId));
+        const missingG = guides.filter((u) => !onMapG.has(u.id));
+        const missingB = businesses.filter((u) => !onMapB.has(u.id));
+        if (missingG.length === 0 && missingB.length === 0) {
           setFocusMsg('');
           return;
         }
-        const names = missing
-          .slice(0, 3)
-          .map((m) => m.displayName)
-          .join(', ');
+        const parts: string[] = [];
+        if (missingG.length) {
+          parts.push(
+            `Guides missing: ${missingG
+              .slice(0, 2)
+              .map((m) => m.displayName)
+              .join(', ')}${missingG.length > 2 ? '…' : ''}`,
+          );
+        }
+        if (missingB.length) {
+          parts.push(
+            `Business missing: ${missingB
+              .slice(0, 2)
+              .map((m) => m.displayName)
+              .join(', ')}${missingB.length > 2 ? '…' : ''}`,
+          );
+        }
         setFocusMsg(
-          `Map has ${data.guides?.length ?? 0} Guide pin(s), but Users has ${rows.length} Guide(s). Missing on map: ${names}${missing.length > 3 ? '…' : ''}. Fix: Historic → set district → Save zone (or run prisma:seed on API).`,
+          `${parts.join(' · ')}. Fix: Historic → set district → Save zone (or prisma:seed).`,
         );
       })
       .catch(() => undefined);
-  }, [data, focusGuideId]);
+  }, [data, focusGuideId, focusBusinessId]);
 
   const primaryZone = useMemo(() => {
     if (!data) return null;
@@ -232,6 +262,20 @@ export function MapPage() {
         );
       }
     }
+    if (showBusinessBases) {
+      for (const b of data.businesses ?? []) {
+        const isFocus = focusBusinessId === b.userId;
+        addMarker(
+          b.longitude,
+          b.latitude,
+          isFocus ? '#5b21b6' : '#7c3aed',
+          b.displayName,
+          `Business · ${b.districtName}${b.citySlug ? ` · ${b.citySlug}` : ''} · ${b.email}`,
+          `biz-${b.userId}`,
+          isFocus ? 26 : 20,
+        );
+      }
+    }
     if (showGuides) {
       for (const p of data.guidePlaces) {
         addMarker(
@@ -249,10 +293,10 @@ export function MapPage() {
         addMarker(
           p.longitude,
           p.latitude,
-          '#7c3aed',
+          '#a78bfa',
           p.name,
-          `Business · ${p.business?.displayName ?? 'unknown'} · ${p.verificationStatus}`,
-          `b-${p.id}`,
+          `Business place · ${p.business?.displayName ?? 'unknown'} · ${p.verificationStatus}`,
+          `bp-${p.id}`,
         );
       }
     }
@@ -261,7 +305,7 @@ export function MapPage() {
       const hit = (data.guides ?? []).find((g) => g.userId === focusGuideId);
       if (hit) {
         setFocusMsg(
-          `Focused: ${hit.displayName} · ${hit.districtName}${hit.citySlug ? ` · ${hit.citySlug}` : ''}`,
+          `Focused Guide: ${hit.displayName} · ${hit.districtName}${hit.citySlug ? ` · ${hit.citySlug}` : ''}`,
         );
         setSelected(
           `${hit.displayName}\nGuide · ${hit.districtName} · ${hit.email}`,
@@ -271,21 +315,58 @@ export function MapPage() {
           zoom: 12.5,
           essential: true,
         });
-      } else {
-        setFocusMsg('');
-        setSelected(null);
+      }
+    } else if (focusBusinessId) {
+      const hit = (data.businesses ?? []).find(
+        (b) => b.userId === focusBusinessId,
+      );
+      if (hit) {
+        setFocusMsg(
+          `Focused Business: ${hit.displayName} · ${hit.districtName}${hit.citySlug ? ` · ${hit.citySlug}` : ''}`,
+        );
+        setSelected(
+          `${hit.displayName}\nBusiness · ${hit.districtName} · ${hit.email}`,
+        );
+        map.flyTo({
+          center: [hit.longitude, hit.latitude],
+          zoom: 12.5,
+          essential: true,
+        });
       }
     }
-  }, [data, mapReady, showGuideBases, showGuides, showBusiness, focusGuideId]);
+  }, [
+    data,
+    mapReady,
+    showGuideBases,
+    showBusinessBases,
+    showGuides,
+    showBusiness,
+    focusGuideId,
+    focusBusinessId,
+  ]);
 
   useEffect(() => {
-    if (!focusGuideId || !data) return;
-    const hit = (data.guides ?? []).find((g) => g.userId === focusGuideId);
-    if (hit) return;
-    setFocusMsg(
-      `Guide ${focusGuideId.slice(0, 8)}… is in Users but not on the map — missing city/district zone. Open Users → Historic → set district → Save zone, then try Show on map again.`,
-    );
-  }, [focusGuideId, data]);
+    if (!data) return;
+    if (focusGuideId) {
+      const hit = (data.guides ?? []).find((g) => g.userId === focusGuideId);
+      if (!hit) {
+        setFocusMsg(
+          `Guide ${focusGuideId.slice(0, 8)}… is in Users but not on the map — missing city/district. Historic → set district → Save zone.`,
+        );
+      }
+      return;
+    }
+    if (focusBusinessId) {
+      const hit = (data.businesses ?? []).find(
+        (b) => b.userId === focusBusinessId,
+      );
+      if (!hit) {
+        setFocusMsg(
+          `Business ${focusBusinessId.slice(0, 8)}… is in Users but not on the map — missing city/district. Historic → set district → Save zone.`,
+        );
+      }
+    }
+  }, [focusGuideId, focusBusinessId, data]);
 
   if (!TOKEN) {
     return (
@@ -331,9 +412,8 @@ export function MapPage() {
         <div>
           <h1>Map</h1>
           <p className="ll-page-sub">
-            Green overlay = ACTIVE service city. Orange pins = Guide home
-            districts. Teal = Guide places (off by default). Purple = Business
-            places.
+            Green = ACTIVE city. Orange = Guides. Purple = Businesses. Place
+            layers are off by default.
           </p>
         </div>
       </div>
@@ -354,12 +434,6 @@ export function MapPage() {
           ) : null}
         </div>
       ) : null}
-      {data && (data.guides?.length ?? 0) === 0 && !focusGuideId ? (
-        <div style={ui.alertWarn}>
-          No Guide bases yet. Open Users → Guides → set a district (or reseed
-          API), then refresh this map.
-        </div>
-      ) : null}
 
       <div style={styles.toolbar}>
         <label style={styles.toggle}>
@@ -370,6 +444,16 @@ export function MapPage() {
           />
           <span className="ll-badge" style={{ background: '#ffedd5', color: '#c2410c' }}>
             Guides ({data?.guides?.length ?? '…'})
+          </span>
+        </label>
+        <label style={styles.toggle}>
+          <input
+            type="checkbox"
+            checked={showBusinessBases}
+            onChange={(e) => setShowBusinessBases(e.target.checked)}
+          />
+          <span className="ll-badge" style={{ background: '#ede9fe', color: '#5b21b6' }}>
+            Businesses ({data?.businesses?.length ?? '…'})
           </span>
         </label>
         <label style={styles.toggle}>
@@ -388,7 +472,7 @@ export function MapPage() {
             checked={showBusiness}
             onChange={(e) => setShowBusiness(e.target.checked)}
           />
-          <span className="ll-badge" style={{ background: '#ede9fe', color: '#5b21b6' }}>
+          <span className="ll-badge" style={{ background: '#f3e8ff', color: '#6b21a8' }}>
             Business places ({data?.businessPlaces.length ?? '…'})
           </span>
         </label>

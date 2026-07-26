@@ -111,6 +111,12 @@ class CreateBusinessDto {
   @MaxLength(80)
   displayName!: string;
 
+  @IsUUID()
+  baseCityId!: string;
+
+  @IsUUID()
+  primaryDistrictId!: string;
+
   @IsOptional()
   @IsString()
   @MaxLength(120)
@@ -119,6 +125,21 @@ class CreateBusinessDto {
   @IsOptional()
   @IsEmail()
   contactEmail?: string;
+}
+
+class UpdateBusinessDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  displayName?: string;
+
+  @IsOptional()
+  @IsUUID()
+  baseCityId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  primaryDistrictId?: string;
 }
 
 function tempPassword() {
@@ -456,7 +477,17 @@ export class AdminController {
           },
         },
         businessProfile: {
-          select: { id: true, displayName: true, verificationStatus: true },
+          select: {
+            id: true,
+            displayName: true,
+            verificationStatus: true,
+            baseCityId: true,
+            primaryDistrictId: true,
+            baseCity: { select: { id: true, name: true, slug: true } },
+            primaryDistrict: {
+              select: { id: true, name: true, slug: true },
+            },
+          },
         },
       },
     });
@@ -780,6 +811,20 @@ export class AdminController {
     const email = dto.email.trim().toLowerCase();
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new ConflictException('Email already registered');
+
+    const district = await this.prisma.district.findUnique({
+      where: { id: dto.primaryDistrictId },
+    });
+    if (!district || district.cityId !== dto.baseCityId) {
+      throw new BadRequestException(
+        'primaryDistrictId must belong to baseCityId',
+      );
+    }
+    const city = await this.prisma.city.findUnique({
+      where: { id: dto.baseCityId },
+    });
+    if (!city) throw new BadRequestException('baseCityId not found');
+
     const password = tempPassword();
     const passwordHash = await argon2.hash(password);
     const user = await this.prisma.user.create({
@@ -796,6 +841,8 @@ export class AdminController {
             legalName: dto.legalName,
             contactEmail: dto.contactEmail ?? email,
             verificationStatus: VerificationStatus.APPROVED,
+            baseCityId: dto.baseCityId,
+            primaryDistrictId: dto.primaryDistrictId,
           },
         },
       },
@@ -807,7 +854,17 @@ export class AdminController {
         status: true,
         createdAt: true,
         businessProfile: {
-          select: { id: true, displayName: true, verificationStatus: true },
+          select: {
+            id: true,
+            displayName: true,
+            verificationStatus: true,
+            baseCityId: true,
+            primaryDistrictId: true,
+            baseCity: { select: { id: true, name: true, slug: true } },
+            primaryDistrict: {
+              select: { id: true, name: true, slug: true },
+            },
+          },
         },
       },
     });
@@ -816,10 +873,103 @@ export class AdminController {
       action: 'business.create',
       entityType: 'user',
       entityId: user.id,
-      afterJson: { email: user.email, role: user.role },
+      afterJson: {
+        email: user.email,
+        role: user.role,
+        baseCityId: dto.baseCityId,
+        primaryDistrictId: dto.primaryDistrictId,
+      },
       requestId: req.requestId,
     });
     return { user, temporaryPassword: password };
+  }
+
+  @Patch('businesses/:id')
+  @Auth(UserRole.ADMIN)
+  async updateBusiness(
+    @CurrentUser() admin: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateBusinessDto,
+    @Req() req: Request & { requestId?: string },
+  ) {
+    const user = await this.prisma.user.findFirst({
+      where: { id, role: UserRole.BUSINESS, deletedAt: null },
+      include: { businessProfile: true },
+    });
+    if (!user?.businessProfile) {
+      throw new NotFoundException('Business not found');
+    }
+
+    const nextCityId = dto.baseCityId ?? user.businessProfile.baseCityId;
+    const nextDistrictId =
+      dto.primaryDistrictId ?? user.businessProfile.primaryDistrictId;
+
+    if (dto.baseCityId || dto.primaryDistrictId) {
+      if (!nextCityId || !nextDistrictId) {
+        throw new BadRequestException(
+          'baseCityId and primaryDistrictId are both required when updating location',
+        );
+      }
+      const district = await this.prisma.district.findUnique({
+        where: { id: nextDistrictId },
+      });
+      if (!district || district.cityId !== nextCityId) {
+        throw new BadRequestException(
+          'primaryDistrictId must belong to baseCityId',
+        );
+      }
+    }
+
+    const before = user.businessProfile;
+    const after = await this.prisma.businessProfile.update({
+      where: { userId: id },
+      data: {
+        ...(dto.displayName !== undefined
+          ? { displayName: dto.displayName.trim() }
+          : {}),
+        ...(dto.baseCityId !== undefined ? { baseCityId: dto.baseCityId } : {}),
+        ...(dto.primaryDistrictId !== undefined
+          ? { primaryDistrictId: dto.primaryDistrictId }
+          : {}),
+      },
+      include: {
+        baseCity: { select: { id: true, name: true, slug: true } },
+        primaryDistrict: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            latitude: true,
+            longitude: true,
+          },
+        },
+      },
+    });
+    await this.audit.log({
+      actorUserId: admin.id,
+      action: 'business.update',
+      entityType: 'business',
+      entityId: id,
+      beforeJson: {
+        baseCityId: before.baseCityId,
+        primaryDistrictId: before.primaryDistrictId,
+      },
+      afterJson: {
+        baseCityId: after.baseCityId,
+        primaryDistrictId: after.primaryDistrictId,
+      },
+      requestId: req.requestId,
+    });
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role,
+        status: user.status,
+        businessProfile: after,
+      },
+    };
   }
 
   @Get('businesses/:id')
@@ -835,7 +985,20 @@ export class AdminController {
         status: true,
         createdAt: true,
         lastLoginAt: true,
-        businessProfile: true,
+        businessProfile: {
+          include: {
+            baseCity: { select: { id: true, name: true, slug: true } },
+            primaryDistrict: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                latitude: true,
+                longitude: true,
+              },
+            },
+          },
+        },
       },
     });
     if (!user?.businessProfile) {
@@ -921,7 +1084,7 @@ export class AdminController {
   @Get('map-overview')
   @Auth(UserRole.ADMIN)
   async mapOverview() {
-    const [cities, guidePlaces, businessPlaces, guideProfiles] =
+    const [cities, guidePlaces, businessPlaces, guideProfiles, businessProfiles] =
       await Promise.all([
         this.prisma.city.findMany({
           where: { status: 'ACTIVE' },
@@ -1014,6 +1177,46 @@ export class AdminController {
             },
           },
         }),
+        this.prisma.businessProfile.findMany({
+          where: {
+            user: { deletedAt: null, role: UserRole.BUSINESS },
+            OR: [
+              { primaryDistrictId: { not: null } },
+              { baseCityId: { not: null } },
+            ],
+          },
+          take: 500,
+          select: {
+            userId: true,
+            displayName: true,
+            user: {
+              select: {
+                id: true,
+                displayName: true,
+                email: true,
+                status: true,
+              },
+            },
+            baseCity: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                latitude: true,
+                longitude: true,
+              },
+            },
+            primaryDistrict: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                latitude: true,
+                longitude: true,
+              },
+            },
+          },
+        }),
       ]);
 
     return {
@@ -1063,6 +1266,34 @@ export class AdminController {
           };
         })
         .filter((g): g is NonNullable<typeof g> => g != null),
+      businesses: businessProfiles
+        .map((b) => {
+          const lat = b.primaryDistrict
+            ? Number(b.primaryDistrict.latitude)
+            : b.baseCity?.latitude != null
+              ? Number(b.baseCity.latitude)
+              : null;
+          const lng = b.primaryDistrict
+            ? Number(b.primaryDistrict.longitude)
+            : b.baseCity?.longitude != null
+              ? Number(b.baseCity.longitude)
+              : null;
+          if (lat == null || lng == null) return null;
+          return {
+            userId: b.userId,
+            displayName: b.displayName || b.user.displayName,
+            email: b.user.email,
+            status: b.user.status,
+            latitude: lat,
+            longitude: lng,
+            districtId: b.primaryDistrict?.id ?? null,
+            districtName: b.primaryDistrict?.name ?? 'Unassigned zone',
+            cityId: b.baseCity?.id ?? null,
+            citySlug: b.baseCity?.slug ?? null,
+            cityName: b.baseCity?.name ?? null,
+          };
+        })
+        .filter((b): b is NonNullable<typeof b> => b != null),
       guidePlaces: guidePlaces.map((p) => ({
         id: p.id,
         name: p.name,
