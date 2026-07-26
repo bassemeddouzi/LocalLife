@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../api';
 import { ui } from '../../ui';
 
@@ -92,7 +92,14 @@ function StatusBadge({ status }: { status: string }) {
 
 export function UsersPage() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>('CLIENT');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const focusUserId = searchParams.get('user');
+  const tabParam = searchParams.get('tab');
+  const initialTab: Tab =
+    tabParam === 'GUIDE' || tabParam === 'BUSINESS' || tabParam === 'CLIENT'
+      ? tabParam
+      : 'CLIENT';
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
@@ -161,6 +168,16 @@ export function UsersPage() {
       .catch((e) => setMsg(e instanceof Error ? e.message : String(e)));
   }, [guideCityId, bizCityId, tab]);
 
+  useEffect(() => {
+    if (
+      tabParam === 'GUIDE' ||
+      tabParam === 'BUSINESS' ||
+      tabParam === 'CLIENT'
+    ) {
+      setTab(tabParam);
+    }
+  }, [tabParam]);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -172,12 +189,24 @@ export function UsersPage() {
   }, [tab]);
 
   useEffect(() => {
-    setDetailGuide(null);
-    setDetailBiz(null);
+    if (!focusUserId) {
+      setDetailGuide(null);
+      setDetailBiz(null);
+    }
     void load().catch((e) =>
       setMsg(e instanceof Error ? e.message : String(e)),
     );
-  }, [load]);
+  }, [load, focusUserId]);
+
+  function selectTab(next: Tab) {
+    setTab(next);
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      p.set('tab', next);
+      p.delete('user');
+      return p;
+    });
+  }
 
   async function setBlocked(id: string, block: boolean) {
     try {
@@ -293,6 +322,20 @@ export function UsersPage() {
     }
   }
 
+  function focusUser(role: 'GUIDE' | 'BUSINESS', id: string) {
+    setSearchParams({ tab: role, user: id });
+  }
+
+  useEffect(() => {
+    if (!focusUserId || loading) return;
+    if (tab === 'GUIDE') {
+      void openGuide(focusUserId);
+    } else if (tab === 'BUSINESS') {
+      void openBusiness(focusUserId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusUserId, loading, tab]);
+
   async function saveBusinessDistrict(e: FormEvent) {
     e.preventDefault();
     if (!detailBiz) return;
@@ -312,6 +355,16 @@ export function UsersPage() {
     } catch (err) {
       setMsg(err instanceof Error ? err.message : String(err));
     }
+  }
+
+  function clearFocus() {
+    setDetailGuide(null);
+    setDetailBiz(null);
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      p.delete('user');
+      return p;
+    });
   }
 
   return (
@@ -355,7 +408,7 @@ export function UsersPage() {
             role="tab"
             aria-selected={tab === t}
             className={`ll-tab${tab === t ? ' is-active' : ''}`}
-            onClick={() => setTab(t)}
+            onClick={() => selectTab(t)}
           >
             {TAB_LABEL[t]}
           </button>
@@ -605,7 +658,7 @@ export function UsersPage() {
                         <button
                           type="button"
                           style={{ ...ui.btnGhost, ...ui.btnSm }}
-                          onClick={() => void openGuide(u.id)}
+                          onClick={() => focusUser('GUIDE', u.id)}
                         >
                           Historic
                         </button>
@@ -614,7 +667,7 @@ export function UsersPage() {
                         <button
                           type="button"
                           style={{ ...ui.btnGhost, ...ui.btnSm }}
-                          onClick={() => void openBusiness(u.id)}
+                          onClick={() => focusUser('BUSINESS', u.id)}
                         >
                           Historic
                         </button>
@@ -654,7 +707,7 @@ export function UsersPage() {
               <p className="ll-page-sub">{detailGuide.user.displayName}</p>
             </div>
             <div className="ll-actions">
-              <button type="button" style={ui.btnGhost} onClick={() => setDetailGuide(null)}>
+              <button type="button" style={ui.btnGhost} onClick={clearFocus}>
                 Close
               </button>
               <button
@@ -726,7 +779,7 @@ export function UsersPage() {
               <p className="ll-page-sub">{detailBiz.user.displayName}</p>
             </div>
             <div className="ll-actions">
-              <button type="button" style={ui.btnGhost} onClick={() => setDetailBiz(null)}>
+              <button type="button" style={ui.btnGhost} onClick={clearFocus}>
                 Close
               </button>
               <button

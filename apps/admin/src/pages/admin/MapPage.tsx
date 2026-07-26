@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { api } from '../../api';
@@ -63,6 +63,7 @@ const TOKEN =
 const TOKEN_OK = Boolean(TOKEN && /^pk\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.test(TOKEN));
 
 export function MapPage() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const focusGuideId = searchParams.get('guide');
   const focusBusinessId = searchParams.get('business');
@@ -223,6 +224,7 @@ export function MapPage() {
       subtitle: string,
       key: string,
       size = 14,
+      onOpen?: () => void,
     ) => {
       const el = document.createElement('button');
       el.type = 'button';
@@ -230,17 +232,23 @@ export function MapPage() {
       el.style.background = color;
       el.style.width = `${size}px`;
       el.style.height = `${size}px`;
-      el.title = title;
+      el.title = onOpen ? `${title} — open user` : title;
+      el.style.cursor = onOpen ? 'pointer' : 'default';
       el.addEventListener('click', (ev) => {
         ev.stopPropagation();
         setSelected(`${title}\n${subtitle}`);
+        onOpen?.();
       });
 
       const marker = new mapboxgl.Marker({ element: el })
         .setLngLat([lng, lat])
         .setPopup(
           new mapboxgl.Popup({ offset: 16 }).setHTML(
-            `<strong>${escapeHtml(title)}</strong><div style="margin-top:4px;color:#64748b;font-size:12px">${escapeHtml(subtitle)}</div>`,
+            `<strong>${escapeHtml(title)}</strong><div style="margin-top:4px;color:#64748b;font-size:12px">${escapeHtml(subtitle)}</div>${
+              onOpen
+                ? `<div style="margin-top:8px;font-size:12px;color:#0f766e">Click pin to open user</div>`
+                : ''
+            }`,
           ),
         )
         .addTo(map);
@@ -259,6 +267,10 @@ export function MapPage() {
           `Guide · ${g.districtName}${g.citySlug ? ` · ${g.citySlug}` : ''} · ${g.email}`,
           `base-${g.userId}`,
           isFocus ? 26 : 20,
+          () =>
+            navigate(
+              `/admin/users?tab=GUIDE&user=${encodeURIComponent(g.userId)}`,
+            ),
         );
       }
     }
@@ -273,6 +285,10 @@ export function MapPage() {
           `Business · ${b.districtName}${b.citySlug ? ` · ${b.citySlug}` : ''} · ${b.email}`,
           `biz-${b.userId}`,
           isFocus ? 26 : 20,
+          () =>
+            navigate(
+              `/admin/users?tab=BUSINESS&user=${encodeURIComponent(b.userId)}`,
+            ),
         );
       }
     }
@@ -343,6 +359,7 @@ export function MapPage() {
     showBusiness,
     focusGuideId,
     focusBusinessId,
+    navigate,
   ]);
 
   useEffect(() => {
