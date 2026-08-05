@@ -32,6 +32,13 @@
 | UAT/beta | Real users | Feedback + bug list | Phase 07 |
 | Regression | Previous gates pack | No critical reopen | Each later release |
 
+### Phase 05c companion gates
+- `test/companion.e2e-spec.ts` — plans CRUD, avatar cues, search
+- SubGuide propose → Admin approve (manual + API)
+- Hard filter adult nightlife on search when prefs set
+- Freshness jobs Admin-triggerable
+- Security notes: `Phase-05c-Local-Companion/04-Security-Notes.md`
+
 ---
 
 ## 3. First tests (exact moment)

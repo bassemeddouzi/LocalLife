@@ -12,9 +12,11 @@ import {
 import { AdminDashboard } from './pages/admin/DashboardPage';
 import { ModerationPage } from './pages/admin/ModerationPage';
 import { UsersPage } from './pages/admin/UsersPage';
+import { SubGuidesPage } from './pages/admin/SubGuidesPage';
 import { AiConfigPage } from './pages/admin/AiConfigPage';
 import { FlagsPage } from './pages/admin/FlagsPage';
 import { SeedToolsPage } from './pages/admin/SeedToolsPage';
+import { FreshnessPage } from './pages/admin/FreshnessPage';
 import {
   GuideHomePage,
   GuideSubmitPlacePage,
@@ -79,9 +81,11 @@ export default function App() {
           />
           <Route path="moderation" element={<ModerationPage />} />
           <Route path="users" element={<UsersPage />} />
+          <Route path="subguides" element={<SubGuidesPage />} />
           <Route path="ai-config" element={<AiConfigPage />} />
           <Route path="flags" element={<FlagsPage />} />
           <Route path="seed" element={<SeedToolsPage />} />
+          <Route path="freshness" element={<FreshnessPage />} />
         </Route>
 
         <Route

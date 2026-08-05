@@ -1,6 +1,12 @@
 # Guide & Business ops (Admin-provisioned + Guide propose)
 
-**Aligned with:** Decisions Log v1.4 — one mobile app; Admin web provisioning; Guide may propose Business.
+**Aligned with:** Decisions Log v1.5 — one mobile app; Admin web provisioning; Guide may propose Business.
+
+## Client auth (for contrast)
+
+- Travelers (**CLIENT**) use the pre-login landing: **Continue with Google** or **Continue with email**.
+- Google Sign-In is **CLIENT only** (`POST /v1/auth/google`). Guide and Business accounts stay Admin-provisioned email/password — no Google for those roles in MVP.
+- Phone / SMS OTP is deferred.
 
 ## Contribution catalog (what Guide adds)
 
@@ -17,7 +23,7 @@
 1. Open Admin web → **Users → Guides → Add Guide**.
 2. Enter email + display name + **city + district** (required).
 3. Copy the **temporary password** shown once; send it to the Guide (email mailer later).
-4. Guide installs **LocalLife** (same Expo app as Clients) → **Login** (no Register).
+4. Guide installs **LocalLife** (same Expo app as Clients) → landing → **Continue with email** → **Login** (no Register / no Google for Guide).
 5. App detects `role=GUIDE` → Guide tabs (place / tip / event / experience / propose Business / submissions).
 
 ## Create a Business (Admin)

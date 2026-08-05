@@ -2,32 +2,39 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   Pressable,
   StyleSheet,
   Alert,
   I18nManager,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
 import { apiFetch } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { colors } from '../theme';
+import { colors, fonts, radii, spacing, type } from '../theme';
+import {
+  AppTextInput,
+  KeyboardSafeScroll,
+} from '../components/KeyboardSafe';
 
 type AuthResponse = {
   accessToken: string;
   refreshToken: string;
 };
 
-export function AuthScreen() {
+type Props = {
+  onBack?: () => void;
+};
+
+export function AuthScreen({ onBack }: Props) {
   const { t, i18n } = useTranslation();
   const { signIn } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [email, setEmail] = useState('guide@locallife.local');
-  const [password, setPassword] = useState('Guide123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [busy, setBusy] = useState(false);
+  const isRtl = i18n.dir() === 'rtl' || I18nManager.isRTL;
 
   const submit = async () => {
     setBusy(true);
@@ -66,47 +73,47 @@ export function AuthScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
+    <KeyboardSafeScroll
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      contentContainerStyle={styles.scroll}
+      keyboardVerticalOffset={PlatformOffset()}
     >
-      <Text style={styles.brand}>LocalLife</Text>
-      <Text style={styles.sub}>{t('welcomeSub')}</Text>
+      <StatusBar style="dark" />
+      {onBack ? (
+        <Pressable onPress={onBack} style={styles.back}>
+          <Text style={styles.backText}>{t('back')}</Text>
+        </Pressable>
+      ) : null}
+      <Text style={[styles.brand, isRtl && styles.alignEnd]}>LocalLife</Text>
+      <Text style={[styles.sub, isRtl && styles.alignEnd]}>{t('welcomeSub')}</Text>
       {mode === 'register' ? (
-        <Text style={styles.hint}>
-          Public registration creates a traveler (CLIENT) account. Guide and
-          Business accounts are created by Admin.
+        <Text style={[styles.hint, isRtl && styles.alignEnd]}>
+          {t('registerHint')}
         </Text>
       ) : (
-        <Text style={styles.hint}>
-          Guide / Business: login with the credentials from Admin (no signup).
+        <Text style={[styles.hint, isRtl && styles.alignEnd]}>
+          {t('loginHint')}
         </Text>
       )}
       {mode === 'register' ? (
-        <TextInput
-          style={styles.input}
+        <AppTextInput
           placeholder={t('displayName')}
           value={displayName}
           onChangeText={setDisplayName}
-          placeholderTextColor={colors.muted}
         />
       ) : null}
-      <TextInput
-        style={styles.input}
+      <AppTextInput
         autoCapitalize="none"
         keyboardType="email-address"
         placeholder={t('email')}
         value={email}
         onChangeText={setEmail}
-        placeholderTextColor={colors.muted}
       />
-      <TextInput
-        style={styles.input}
+      <AppTextInput
         secureTextEntry
         placeholder={t('password')}
         value={password}
         onChangeText={setPassword}
-        placeholderTextColor={colors.muted}
       />
       <Pressable
         style={[styles.btn, busy && styles.btnDisabled]}
@@ -128,9 +135,9 @@ export function AuthScreen() {
           {mode === 'login' ? t('register') : t('login')}
         </Text>
       </Pressable>
-      <View style={styles.langs}>
+      <View style={[styles.langs, isRtl && { flexDirection: 'row-reverse' }]}>
         {['en', 'fr', 'ar'].map((lng) => (
-          <Pressable key={lng} onPress={() => switchLang(lng)}>
+          <Pressable key={lng} onPress={() => void switchLang(lng)}>
             <Text
               style={[
                 styles.lang,
@@ -142,44 +149,75 @@ export function AuthScreen() {
           </Pressable>
         ))}
       </View>
-    </KeyboardAvoidingView>
+    </KeyboardSafeScroll>
   );
+}
+
+function PlatformOffset() {
+  return 24;
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-    gap: 12,
     backgroundColor: colors.bg,
   },
-  brand: { fontSize: 34, fontWeight: '800', color: colors.brandDark },
-  sub: { color: colors.muted, marginBottom: 4 },
-  hint: { color: colors.muted, fontSize: 13, marginBottom: 8, lineHeight: 18 },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 14,
-    color: colors.ink,
+  scroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: spacing.lg,
+    gap: spacing.md,
+    paddingBottom: 48,
+  },
+  back: { marginBottom: spacing.sm, alignSelf: 'flex-start' },
+  backText: {
+    fontFamily: fonts.bodyMedium,
+    color: colors.brand,
+    fontSize: 15,
+  },
+  brand: {
+    ...type.brand,
+    fontSize: 36,
+    color: colors.brandDark,
+  },
+  alignEnd: { textAlign: 'right', writingDirection: 'rtl' },
+  sub: {
+    ...type.body,
+    color: colors.muted,
+    marginBottom: spacing.xs,
+  },
+  hint: {
+    ...type.bodySm,
+    color: colors.muted,
+    marginBottom: spacing.sm,
   },
   btn: {
     backgroundColor: colors.brand,
-    padding: 14,
-    borderRadius: 12,
+    padding: 16,
+    borderRadius: radii.md,
     alignItems: 'center',
   },
   btnDisabled: { opacity: 0.6 },
-  btnText: { color: '#fff', fontWeight: '700' },
-  link: { textAlign: 'center', color: colors.brand, marginTop: 4 },
+  btnText: {
+    color: '#fff',
+    fontFamily: fonts.bodyBold,
+    fontSize: 16,
+  },
+  link: {
+    textAlign: 'center',
+    color: colors.brand,
+    fontFamily: fonts.bodyMedium,
+    marginTop: spacing.xs,
+  },
   langs: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 16,
-    marginTop: 20,
+    gap: spacing.lg,
+    marginTop: spacing.lg,
   },
-  lang: { fontWeight: '600', color: colors.muted },
+  lang: {
+    fontFamily: fonts.bodyMedium,
+    color: colors.muted,
+  },
   langActive: { color: colors.brandDark },
 });

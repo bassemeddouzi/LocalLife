@@ -1,158 +1,122 @@
 # 04 — User Personas & Journeys
 
 **Document type:** UX / product  
-**Version:** 1.0  
+**Version:** 2.0 (Vision 2.0 Local Companion)  
 **Language:** English
 
 ---
 
 ## 1. Persona summary
 
-| Persona | Main goal | Time horizon | Budget sensitivity |
-| --- | --- | --- | --- |
-| Tourist | Explore authentically | Days–weeks | Medium–high variance |
-| International student | Build daily life | Months–years | High |
-| Expat / new resident | Settle permanently | Years | Medium |
-| Business traveler | Save time | Hours–days | Lower (time > money) |
-| Local resident | Discover what’s new | Ongoing | Variable |
+| Persona | Main goal | Companion focus |
+| --- | --- | --- |
+| Tourist | Explore authentically | Packs + day plans + Avatar tips |
+| Student | Build daily life | Budget hard filters + student packs |
+| Worker / business traveler | Save time | Fast arrival → meeting → dinner plans |
+| Visiting (short stay) | Orient quickly | Arrival pack + transport-only plan |
+| Family | Safe, fitting days | Conservatism / kids filters + family pack |
 
 ---
 
-## 2. Persona details
+## 2. Persona details (brief)
 
-### 2.1 Tourist — “Sara, 28”
+### Tourist — “Sara”
+Beaches, food, sunset, less trap risk → Chat or For You pack → editable plan → Avatar reminds next step.
 
-- Visits Djerba for 5 days
-- Wants beaches, food, sunset spots, less tourist-trap risk
-- Asks conversational questions, saves favorites, follows map links
+### Student — “Youssef”
+Cheap eats, transport, clinics → hard budget + walksOk → student pack → report closed café → replan cue.
 
-**Critical needs:** attractions, restaurants, beaches, events, local food, transport, safety, hidden places
+### Worker — “Mark”
+48h trip → arrival pack → AI “airport → hotel → meeting café” plan → nav handoff; no booking in MVP.
 
-### 2.2 International student — “Youssef, 21”
+### Visiting friend/relative — “Nadia”
+Short stay, mixed tourist/local → light onboarding → Search + save → companion plan for one evening.
 
-- New semester in a Tunisian city (later phases); for MVP may visit/study-related stay patterns
-- Needs cheap eats, libraries, clinics, transport passes, admin tips
-
-**Critical needs:** affordable housing pointers, discounts, universities, transport, healthcare, coworking
-
-### 2.3 Expat — “Elena, 34”
-
-- Moving for work
-- Needs neighborhoods, banks, SIM/internet, hospitals, regulations
-
-**Critical needs:** settle-fast playbooks + trustworthy local rules
-
-### 2.4 Business traveler — “Mark, 41”
-
-- 48-hour trip
-- Needs airport → hotel → meeting café → dinner → airport
-
-**Critical needs:** speed, reliability, safety, low decision friction
-
-### 2.5 Local — “Amine, 26”
-
-- Lives in city, wants new restaurants/events/weekends
-
-**Critical needs:** freshness, personalization, less tourist noise
+### Family — “Elena + kids”
+Conservatism / `FAMILY_KIDS` / block adult nightlife → family pack → zone advice phrased calmly (no scare UI).
 
 ---
 
-## 3. Core journeys (MVP)
+## 3. Companion journeys (Vision 2.0)
 
-### Journey A — First open after landing
+### Journey A — First open (any persona)
 
 ```text
-1. Install / open app
-2. Sign up (email or social later)
-3. Select language + trip purpose (tourist/student/...)
-4. Allow GPS (or set city manually)
-5. Optional: “Just arrived at airport?” → Arrival Guide
-6. Ask AI first question OR browse Home recommendations
-7. Save 2–3 places
+1. Open app → identity (purpose + optional ≤7 personality Qs)
+2. Set hard filters if needed
+3. For You: open a plan pack OR ask Avatar/Chat
+4. Save plan → offline-ready active plan
 ```
 
-**Success:** user completes an arrival-useful action in < 5 minutes.
+**Success:** useful next action in < 5 minutes.
 
-### Journey B — “Where should I eat tonight?”
+### Journey B — Chat → plan
 
 ```text
-1. Open AI Chat
-2. Ask natural question (+ budget/food preference)
-3. AI returns 3 options with why/distance/price band
-4. User opens Place Details
-5. Checks tips + hours + reviews
-6. Navigates / saves favorite
+1. Ask “What should I do this afternoon?”
+2. AI respects hard filters + freshness
+3. User saves plan with why-chips
+4. Avatar celebrate → continue timeline later
 ```
 
-### Journey C — Weekend plan
+### Journey C — Transport how-to
 
 ```text
-1. Ask “What should I do this weekend?”
-2. AI mixes events + experiences + places
-3. User saves an Experience
-4. (Future) convert to itinerary / booking
+1. Ask airport → Midoun
+2. AI returns FIXED vs METER options + Guide comment
+3. Optional: save as transport-only plan
 ```
 
-### Journey D — Local transport how-to
+### Journey D — Report → replan
 
 ```text
-1. Ask “How do I get from the airport to Midoun?”
-2. AI retrieves TransportSystem + GuideSteps + hubs
-3. Explains mode, payment, approx cost, warnings
-4. Links to hub place / map
+1. Client reports place closed/inaccurate
+2. Admin → Guide verify → update
+3. Avatar soft-warn: replan available
 ```
 
-### Journey E — Guide contribution (Phase 2, schema-ready)
+### Journey E — Guide team (Main → SubGuide)
 
 ```text
-1. Guide applies / gets approved
-2. Adds hidden café with tips + photos
-3. Submits for approval
-4. Admin approves
-5. Entity becomes AI-retrievable
+1. Main Guide: Team → Add SubGuide + draw border
+2. Admin confirm queue → Approve
+3. SubGuide contributes only inside border
 ```
 
 ---
 
-## 4. Journey requirements that force database design
+## 4. Journey → data objects
 
-| User moment | Knowledge object required |
+| Moment | Objects |
 | --- | --- |
-| Leave airport | ArrivalGuide + GuideStep |
-| Take louage/taxi | TransportSystem + PaymentMethod + pricing fields |
-| Respect local norms | LocalRule (scope/severity) |
-| Find student-budget food | Place + tags + priceLevel + audience fit |
-| Sunset plan | Place attributes + bestTime notes + Experience |
-| Trust the answer | verificationStatus + sourceType |
+| Onboarding filters | UserPreference.hardFiltersJson + identity fields |
+| Pack / plan | PlanPack, ClientPlan, ClientPlanStep |
+| Avatar nudge | AvatarCue, Notification |
+| Zone comfort | ZoneSafetyAssessment (internal) → derived advice |
+| Special place | Place checklist / precautions / freshness |
+| SubGuide | SubGuideApplication, GuideProfile.parentGuideId/borderGeoJson |
 
 ---
 
-## 5. UX principles by journey stage
+## 5. UX principles
 
-1. **Onboarding:** ask only what changes answers (purpose, interests, budget band, language)
-2. **Home:** location + AI shortcut + nearby + events (no dashboard clutter)
-3. **Chat:** answers with entity cards, not walls of text only
-4. **Details:** why / when / who / how / tips
-5. **Saved:** quick revisit
-6. **Trust UI:** show “Verified local knowledge” / source badges when useful
+1. Companion first — not a map browser dashboard
+2. Brand + one job per viewport; Avatar + plan timeline as signature motion
+3. Explain “why this for you”; never raw danger labels
+4. Offline: active plan + emergency + cached cues
+5. Trust badges when useful
 
 ---
 
 ## 6. Accessibility & language
 
-- Primary UI languages roadmap: English, French, Arabic (Tunisian content may be bilingual)
-- Content entities should support translations table
-- MVP may ship EN/FR first; schema must not block AR
+UI: EN / FR / AR (RTL). Guide content stays in author language until translation ships (doc 06).
 
 ---
 
-## 7. Edge cases to design for
+## 7. Edge cases
 
-- GPS denied → manual city selection
-- Offline → cached favorites/recent places
-- Conflicting reviews → show distribution, prefer verified tips
-- Sponsored place in AI answer → clear “Sponsored” label
-- No data for query → honest fallback + suggest broader question (never invent)
+GPS denied → manual city · Offline → cached plan · Sponsored → labeled · Missing data → honest fallback · Reduce-motion → static Avatar
 
 ---
 

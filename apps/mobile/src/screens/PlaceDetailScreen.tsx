@@ -11,9 +11,12 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { apiFetch } from '../api/client';
+import { useCity } from '../context/CityContext';
+import { ClientRatingForm } from '../components/ClientRatingForm';
 import { colors } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -39,27 +42,40 @@ type PlaceDetail = {
 
 export function PlaceDetailScreen() {
   const { t } = useTranslation();
+  const { city } = useCity();
   const route = useRoute<RouteProp<RootStackParamList, 'PlaceDetail'>>();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [place, setPlace] = useState<PlaceDetail | null>(null);
   const [reviews, setReviews] = useState<
-    Array<{ id: string; rating: number; body?: string | null }>
+    Array<{ id: string; rating: number; body?: string | null; user?: { displayName?: string } }>
   >([]);
+  const [avg, setAvg] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const loadReviews = async () => {
+    const r = await apiFetch<{
+      data: Array<{
+        id: string;
+        rating: number;
+        body?: string | null;
+        user?: { displayName?: string };
+      }>;
+      summary?: { average: number | null; count: number };
+    }>(`/v1/places/${route.params.placeId}/reviews`, { auth: false });
+    setReviews(r.data);
+    setAvg(r.summary?.average ?? null);
+  };
 
   useEffect(() => {
     void (async () => {
       try {
-        const [p, r] = await Promise.all([
-          apiFetch<PlaceDetail>(`/v1/places/${route.params.placeId}`, {
-            auth: false,
-          }),
-          apiFetch<{ data: Array<{ id: string; rating: number; body?: string | null }> }>(
-            `/v1/places/${route.params.placeId}/reviews`,
-            { auth: false },
-          ),
-        ]);
+        const p = await apiFetch<PlaceDetail>(
+          `/v1/places/${route.params.placeId}`,
+          { auth: false },
+        );
         setPlace(p);
-        setReviews(r.data);
+        await loadReviews();
       } catch (e) {
         Alert.alert(t('error'), e instanceof Error ? e.message : String(e));
       } finally {
@@ -78,6 +94,59 @@ export function PlaceDetailScreen() {
         }),
       });
       Alert.alert(t('savedOk'));
+    } catch (e) {
+      Alert.alert(t('error'), e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const reportPlace = async () => {
+    try {
+      await apiFetch('/v1/reports', {
+        method: 'POST',
+        body: JSON.stringify({
+          targetType: 'PLACE',
+          targetId: route.params.placeId,
+          reason: 'inaccurate info',
+        }),
+      });
+      Alert.alert(t('reportPlaceOk'));
+    } catch (e) {
+      Alert.alert(t('error'), e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const askAbout = () => {
+    if (!place) return;
+    navigation.navigate('Tabs', {
+      screen: 'ChatTab',
+      params: {
+        mode: 'info',
+        placeId: place.id,
+        placeName: place.name,
+        preset: t('askAboutPlacePreset', { name: place.name }),
+      },
+    });
+  };
+
+  const addToPlan = async () => {
+    if (!place) return;
+    try {
+      await apiFetch('/v1/me/plans', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: place.name,
+          cityId: city?.id,
+          source: 'MANUAL',
+          steps: [
+            {
+              placeId: place.id,
+              freeText: place.summary?.slice(0, 500) || place.name,
+              sortOrder: 0,
+            },
+          ],
+        }),
+      });
+      Alert.alert(t('planCreated'));
     } catch (e) {
       Alert.alert(t('error'), e instanceof Error ? e.message : String(e));
     }
@@ -124,13 +193,39 @@ export function PlaceDetailScreen() {
         </Pressable>
       </View>
 
+      <View style={styles.actions}>
+        <Pressable style={styles.btnSecondary} onPress={askAbout}>
+          <Text style={styles.btnSecondaryText}>{t('askAboutPlace')}</Text>
+        </Pressable>
+        <Pressable style={styles.btnSecondary} onPress={() => void addToPlan()}>
+          <Text style={styles.btnSecondaryText}>{t('addToPlan')}</Text>
+        </Pressable>
+      </View>
+
+      <Pressable style={styles.reportBtn} onPress={() => void reportPlace()}>
+        <Text style={styles.reportText}>{t('reportPlace')}</Text>
+      </Pressable>
+
       <Text style={styles.section}>{t('reviews')}</Text>
+      {avg != null ? (
+        <Text style={styles.meta}>
+          ★ {avg} · {reviews.length} {t('reviews')}
+        </Text>
+      ) : null}
+      <ClientRatingForm
+        targetType="PLACE"
+        targetId={route.params.placeId}
+        onSaved={() => void loadReviews()}
+      />
       {reviews.length === 0 ? (
-        <Text style={styles.meta}>{t('empty')}</Text>
+        <Text style={styles.meta}>{t('noRatingsYet')}</Text>
       ) : (
         reviews.map((r) => (
           <View key={r.id} style={styles.review}>
-            <Text style={styles.rating}>★ {r.rating}</Text>
+            <Text style={styles.rating}>
+              ★ {r.rating}
+              {r.user?.displayName ? ` · ${r.user.displayName}` : ''}
+            </Text>
             <Text style={styles.meta}>{r.body}</Text>
           </View>
         ))
@@ -166,7 +261,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
   },
-  btnSecondaryText: { color: colors.brand, fontWeight: '700' },
+  btnSecondaryText: { color: colors.brand, fontWeight: '700', textAlign: 'center' },
+  reportBtn: { alignSelf: 'flex-start', paddingVertical: 4 },
+  reportText: { color: colors.danger, fontWeight: '600' },
   section: { marginTop: 16, fontWeight: '800', fontSize: 18, color: colors.ink },
   review: {
     backgroundColor: colors.card,

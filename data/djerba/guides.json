@@ -1,0 +1,104 @@
+{
+  "pack": "djerba-real-v1",
+  "arrivalGuide": {
+    "title": "First hour after landing — Djerba–Zarzis (DJE)",
+    "summary": "Immigration → bags → SIM/cash → official taxi or hotel transfer → hotel.",
+    "estimatedTotalTimeMin": 75,
+    "steps": [
+      {
+        "stepOrder": 1,
+        "title": "Clear immigration",
+        "actionType": "CLEAR_IMMIGRATION",
+        "description": "Have passport ready. Follow arrivals signs.",
+        "estimatedTimeMin": 15
+      },
+      {
+        "stepOrder": 2,
+        "title": "Collect bags",
+        "actionType": "OTHER",
+        "description": "Baggage belts are after immigration. Keep boarding pass handy if asked.",
+        "estimatedTimeMin": 15
+      },
+      {
+        "stepOrder": 3,
+        "title": "SIM / eSIM if needed",
+        "actionType": "BUY_SIM",
+        "description": "Operator desks in arrivals. Passport required for registration.",
+        "estimatedTimeMin": 15
+      },
+      {
+        "stepOrder": 4,
+        "title": "Cash from ATM",
+        "actionType": "WITHDRAW_ATM",
+        "description": "Withdraw TND for taxi and small purchases. Prefer bank ATMs when possible.",
+        "estimatedTimeMin": 10
+      },
+      {
+        "stepOrder": 5,
+        "title": "Official taxi or hotel transfer",
+        "actionType": "TAKE_TAXI",
+        "description": "Use the marked taxi rank or your pre-booked transfer. Agree fare before leaving if needed.",
+        "estimatedTimeMin": 10
+      },
+      {
+        "stepOrder": 6,
+        "title": "Ride to hotel / first base",
+        "actionType": "GO_TO_PLACE",
+        "description": "Typical ride to Midoun / zone touristique is 25–45 minutes depending on traffic.",
+        "estimatedTimeMin": 35
+      }
+    ]
+  },
+  "howToGuides": [
+    {
+      "title": "How louage works on Djerba",
+      "summary": "Shared taxis from stations — cheap seats on known routes.",
+      "categoryKey": "TRANSPORT",
+      "steps": [
+        {
+          "stepOrder": 1,
+          "title": "Go to the louage station",
+          "actionType": "TAKE_SHARED_TAXI",
+          "description": "Houmt Souk and Midoun have main louage points."
+        },
+        {
+          "stepOrder": 2,
+          "title": "Say your destination",
+          "actionType": "OTHER",
+          "description": "Staff or drivers will point you to the right vehicle."
+        },
+        {
+          "stepOrder": 3,
+          "title": "Pay per seat when boarding",
+          "actionType": "OTHER",
+          "description": "Cash only. Vehicle leaves when seats fill."
+        }
+      ]
+    },
+    {
+      "title": "48h survival checklist — Djerba",
+      "summary": "Cash, SIM, water, sunscreen, trusted taxi number from hotel.",
+      "categoryKey": "SURVIVAL_48H",
+      "steps": [
+        {
+          "stepOrder": 1,
+          "title": "Get local cash + data",
+          "actionType": "WITHDRAW_ATM",
+          "description": "ATM + SIM so maps and messages work offline of hotel Wi‑Fi."
+        },
+        {
+          "stepOrder": 2,
+          "title": "Save hotel + taxi contact",
+          "actionType": "OTHER",
+          "description": "Ask reception for a trusted driver number for night rides."
+        },
+        {
+          "stepOrder": 3,
+          "title": "Learn one food + one beach",
+          "actionType": "GO_TO_PLACE",
+          "description": "Pick a calm restaurant near your base and one beach for the first afternoon."
+        }
+      ]
+    }
+  ]
+}

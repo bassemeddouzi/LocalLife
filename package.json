@@ -12,6 +12,8 @@
     "lint:api": "pnpm --filter @locallife/api lint",
     "prisma:migrate": "pnpm --filter @locallife/api prisma:migrate",
     "prisma:seed": "pnpm --filter @locallife/api prisma:seed",
+    "djerba:convert-osm": "pnpm --filter @locallife/api djerba:convert-osm",
+    "djerba:import-real": "pnpm --filter @locallife/api djerba:import-real",
     "smoke:api": "node scripts/smoke-api.mjs",
     "smoke:staging": "node scripts/smoke-api.mjs"
   },

@@ -26,6 +26,115 @@ enum PersonaType {
   EXPAT
   BUSINESS
   LOCAL
+  WORKER
+  VISITING
+  TREATMENT
+  COUPLE
+  FAMILY
+  SOLO
+  ADVENTURE
+}
+
+enum ConservatismLevel {
+  OPEN
+  MODERATE
+  CONSERVATIVE
+  STRICT
+}
+
+enum ClientVibe {
+  ADVENTURE
+  CLASSY
+  CALM
+}
+
+enum PlaceSettingPref {
+  COUNTRYSIDE
+  CITY
+  MIDDLE
+}
+
+enum GroupSizePref {
+  SOLO
+  COUPLE
+  FRIENDS
+  FAMILY_KIDS
+}
+
+enum EffortLevel {
+  EASY
+  MODERATE
+  HARD
+}
+
+enum AccessDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum ZoneCharacter {
+  INDUSTRIAL
+  TOURIST
+  RESIDENTIAL
+  MIXED
+}
+
+enum SafetyLevel {
+  VERY_DANGER
+  DANGER
+  MEDIUM
+  GOOD
+  VERY_GOOD
+}
+
+enum TimeContext {
+  DAY
+  NIGHT
+  WEEKEND
+  ANY
+}
+
+enum AudienceTag {
+  COUPLE
+  FAMILY_CONSERVATIVE
+  FRIENDS
+  SOLO
+  BOYS
+  GIRLS
+  KIDS
+  ADULT_NIGHTLIFE
+  WORKERS
+  STUDENTS
+  ALL
+}
+
+enum SubGuideApplicationStatus {
+  DRAFT
+  PENDING_ADMIN
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum ClientPlanStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum ClientPlanSource {
+  CHAT
+  PACK
+  MANUAL
+}
+
+enum ReportReasonCode {
+  INACCURATE
+  CLOSED
+  SAFETY_CONCERN
+  OTHER
 }
 
 enum BudgetBand {
@@ -61,6 +170,14 @@ enum GuideApplicationStatus {
   APPROVED
   REJECTED
   SUSPENDED
+}
+
+enum GuideAssignmentLevel {
+  HOOD
+  DISTRICT
+  CITY
+  STATE
+  COUNTRY
 }
 
 enum PriceLevel {
@@ -182,10 +299,40 @@ enum MessageRole {
   TOOL
 }
 
+enum AiDigestTargetType {
+  PLACE
+  ZONE
+  TRANSPORT_SYSTEM
+}
+
+enum AiIssueSignalType {
+  PLACE_CLOSED_REPORT
+  INACCURATE_INFO_REPORT
+  SAFETY_CONCERN_REPORT
+  TRANSPORT_PROBLEM_REPORT
+  GENERAL_ISSUE
+}
+
+enum AiIssueSignalStatus {
+  OPEN
+  NOTIFIED
+  ACKNOWLEDGED
+  RESOLVED
+  DISMISSED
+}
+
 enum FavoriteTargetType {
   PLACE
   EVENT
   EXPERIENCE
+}
+
+enum RatingTargetType {
+  PLACE
+  CITY
+  DISTRICT
+  ZONE
+  TRANSPORT_SYSTEM
 }
 
 enum ReportTargetType {
@@ -238,6 +385,7 @@ model User {
   id           String     @id @default(uuid())
   email        String     @unique
   passwordHash String?
+  googleId     String?    @unique
   role         UserRole   @default(CLIENT)
   displayName  String
   avatarUrl    String?
@@ -248,6 +396,7 @@ model User {
   isEmailVerified Boolean @default(false)
   status       UserStatus @default(ACTIVE)
   lastLoginAt  DateTime?
+  onboardingCompletedAt DateTime?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   deletedAt    DateTime?
@@ -257,6 +406,7 @@ model User {
   guideProfile    GuideProfile?
   businessProfile BusinessProfile?
   reviews         Review[]
+  clientRatings   ClientRating[]
   favorites       Favorite[]
   reports         Report[]
   conversations   Conversation[]
@@ -267,6 +417,11 @@ model User {
   experiencesCreated Experience[] @relation("ExperienceCreatedBy")
   localRulesCreated LocalRule[]   @relation("LocalRuleCreatedBy")
   businessApplicationsProposed BusinessApplication[] @relation("BusinessApplicationProposedBy")
+  clientPlans     ClientPlan[]
+  zoneSafetyCreated ZoneSafetyAssessment[] @relation("ZoneSafetyCreatedBy")
+  subGuideAppsAsMain SubGuideApplication[] @relation("SubGuideMain")
+  notifications   Notification[]
+  avatarCues      AvatarCue[]
 }
 
 model UserPreference {
@@ -276,6 +431,13 @@ model UserPreference {
   homeCityId              String?
   dietaryNotes            String?
   accessibilityNotes      String?
+  conservatismLevel       ConservatismLevel @default(MODERATE)
+  walksOk                 Boolean    @default(true)
+  hasVehicle              Boolean    @default(false)
+  vibe                    ClientVibe?
+  settingPref             PlaceSettingPref?
+  groupSize               GroupSizePref @default(SOLO)
+  hardFiltersJson         Json?
   notifyRecommendations   Boolean    @default(true)
   notifyEvents            Boolean    @default(true)
   notifyMarketing         Boolean    @default(false)
@@ -285,6 +447,10 @@ model UserPreference {
   consentPush             Boolean    @default(false)
   consentMarketing        Boolean    @default(false)
   consentUpdatedAt        DateTime?
+  aiProfileJson           Json?
+  aiProfileHash           String?
+  aiProfileVersion        Int        @default(1)
+  aiProfileUpdatedAt      DateTime?
   updatedAt               DateTime   @updatedAt
 }
 
@@ -320,6 +486,7 @@ model Country {
   cities            City[]
   transportSystems  TransportSystem[]
   localRules        LocalRule[]
+  guideProfiles     GuideProfile[] @relation("GuideCountry")
 }
 
 model Region {
@@ -333,6 +500,7 @@ model Region {
   updatedAt DateTime  @updatedAt
 
   cities City[]
+  guideProfiles GuideProfile[] @relation("GuideRegion")
 }
 
 model City {
@@ -383,9 +551,27 @@ model District {
   guideProfiles    GuideProfile[]    @relation("GuidePrimaryDistrict")
   businessProfiles BusinessProfile[] @relation("BusinessPrimaryDistrict")
   businessApplications BusinessApplication[]
+  hoods            Hood[]
 
   @@unique([cityId, slug])
   @@index([cityId])
+}
+
+model Hood {
+  id         String   @id @default(uuid())
+  districtId String
+  district   District @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  name       String
+  slug       String
+  latitude   Decimal  @db.Decimal(10, 7)
+  longitude  Decimal  @db.Decimal(10, 7)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  guideProfiles GuideProfile[] @relation("GuideHood")
+
+  @@unique([districtId, slug])
+  @@index([districtId])
 }
 
 model Category {
@@ -432,6 +618,27 @@ model Place {
   ownedByBusiness    BusinessProfile?   @relation(fields: [ownedByBusinessId], references: [id])
   publishedAt        DateTime?
   metadata           Json?
+  audienceTags       AudienceTag[]      @default([])
+  typicalDurationMin Int?
+  effortLevel        EffortLevel?
+  budgetBand         BudgetBand?
+  ambienceTags       String[]           @default([])
+  guideComment       String?
+  lastReviewedAt     DateTime?
+  freshnessScore     Decimal?           @db.Decimal(5, 2)
+  accessDifficulty   AccessDifficulty?
+  paidEntry          Boolean?
+  prerequisitesText  String?
+  precautionsText    String?
+  checklistJson      Json?
+  bestArriveText     String?
+  bestLeaveText      String?
+  seasonNote         String?
+  facebookUrl        String?
+  instagramUrl       String?
+  ticketUrl          String?
+  ticketHowTo        String?
+  ticketPriceText    String?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   deletedAt          DateTime?
@@ -441,6 +648,7 @@ model Place {
   reviews      Review[]
   claims       BusinessPlaceClaim[]
   transportHubs TransportHub[]
+  events       Event[]
 
   @@unique([cityId, slug])
   @@index([cityId, verificationStatus])
@@ -477,15 +685,32 @@ model GuideProfile {
   status             GuideApplicationStatus @default(APPLIED)
   trustScore         Decimal?               @db.Decimal(5, 2)
   portfolioUrl       String?
+  assignmentLevel    GuideAssignmentLevel   @default(DISTRICT)
+  countryId          String?
+  country            Country?               @relation("GuideCountry", fields: [countryId], references: [id])
+  regionId           String?
+  region             Region?                @relation("GuideRegion", fields: [regionId], references: [id])
   baseCityId         String?
   baseCity           City?                  @relation("GuideBaseCity", fields: [baseCityId], references: [id])
   primaryDistrictId  String?
   primaryDistrict    District?              @relation("GuidePrimaryDistrict", fields: [primaryDistrictId], references: [id])
+  hoodId             String?
+  hood               Hood?                  @relation("GuideHood", fields: [hoodId], references: [id])
+  parentGuideId      String?
+  parentGuide        GuideProfile?          @relation("GuideSubGuides", fields: [parentGuideId], references: [id])
+  subGuides          GuideProfile[]         @relation("GuideSubGuides")
+  borderGeoJson      Json?
+  lastContentReviewAt DateTime?
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
 
   @@index([baseCityId])
   @@index([primaryDistrictId])
+  @@index([hoodId])
+  @@index([regionId])
+  @@index([countryId])
+  @@index([assignmentLevel])
+  @@index([parentGuideId])
 }
 
 model BusinessProfile {
@@ -539,6 +764,12 @@ model BusinessApplication {
   primaryDistrictId    String
   primaryDistrict      District                  @relation(fields: [primaryDistrictId], references: [id])
   note                 String?
+  phone                String?
+  addressText          String?
+  latitude             Decimal?                  @db.Decimal(9, 6)
+  longitude            Decimal?                  @db.Decimal(9, 6)
+  photoUrl             String?
+  categoryKey          String?
   status               BusinessApplicationStatus @default(PENDING)
   reviewedByAdminId    String?
   reviewedAt           DateTime?
@@ -568,6 +799,25 @@ model Review {
   @@index([placeId, status])
 }
 
+/// Client rating + comment (Vision 2.0: clients rate; guides comment separately)
+model ClientRating {
+  id         String             @id @default(uuid())
+  userId     String
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetType RatingTargetType
+  targetId   String
+  rating     Int
+  title      String?
+  body       String?
+  status     VerificationStatus @default(APPROVED)
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  deletedAt  DateTime?
+
+  @@unique([userId, targetType, targetId])
+  @@index([targetType, targetId, status])
+}
+
 model Favorite {
   id         String             @id @default(uuid())
   userId     String
@@ -587,10 +837,12 @@ model Report {
   targetType       ReportTargetType
   targetId         String
   reason           String
+  reasonCode       ReportReasonCode @default(OTHER)
   details          String?
   status           ReportStatus     @default(OPEN)
   resolvedByAdminId String?
   resolutionNotes  String?
+  assignedGuideUserId String?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 }
@@ -749,9 +1001,11 @@ model Event {
   cityId             String
   city               City               @relation(fields: [cityId], references: [id])
   placeId            String?
+  place              Place?             @relation(fields: [placeId], references: [id])
   title              String
   summary            String
   description        String?
+  prerequisites      String?
   startsAt           DateTime
   endsAt             DateTime?
   categoryId         String?
@@ -823,6 +1077,9 @@ model Message {
   toolName    String?
   toolPayload Json?
   createdAt   DateTime    @default(now())
+  compressedAt DateTime?
+  compressionVersion Int?
+  issueSignalScannedAt DateTime?
 
   citations MessageCitation[]
 
@@ -865,6 +1122,99 @@ model AiModelConfig {
   updatedByAdminId String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+model AiDigest {
+  id             String           @id @default(uuid())
+  targetType     AiDigestTargetType
+  targetId       String
+  cityId         String?
+  sourceHash     String
+  digestVersion  Int              @default(1)
+  digestJson     Json
+  summaryText    String?
+  generatedAt    DateTime         @default(now())
+  expiresAt      DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([targetType, targetId])
+  @@index([cityId, targetType])
+  @@index([generatedAt])
+}
+
+model ClientSessionContext {
+  id                   String   @id @default(uuid())
+  userId               String
+  conversationId       String?
+  planId               String?
+  cityId               String?
+  isActive             Boolean  @default(true)
+  contextVersion       Int      @default(1)
+  groupType            String?
+  mood                 String?
+  budgetNow            BudgetBand?
+  conservatismNow      ConservatismLevel?
+  hasPrivateTransport  Boolean?
+  walksOkNow           Boolean?
+  maxEndTimeIso        String?
+  mustAvoidJson        Json?
+  contextJson          Json?
+  sourceMessageId      String?
+  lastUsedAt           DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([userId, isActive, updatedAt])
+  @@index([conversationId])
+  @@index([planId])
+}
+
+model AiTokenUsage {
+  id                 String   @id @default(uuid())
+  userId             String?
+  conversationId     String?
+  messageId          String?
+  provider           String
+  modelId            String
+  intentType         String?
+  promptTokens       Int      @default(0)
+  completionTokens   Int      @default(0)
+  totalTokens        Int      @default(0)
+  estimatedCostUsd   Decimal? @db.Decimal(10, 6)
+  latencyMs          Int?
+  cachedHit          Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([conversationId, createdAt])
+  @@index([provider, modelId, createdAt])
+}
+
+model AiIssueSignal {
+  id                  String              @id @default(uuid())
+  userId              String?
+  conversationId      String?
+  messageId           String?
+  signalType          AiIssueSignalType
+  severity            RuleSeverity        @default(INFO)
+  status              AiIssueSignalStatus @default(OPEN)
+  cityId              String?
+  placeId             String?
+  targetType          String?
+  targetId            String?
+  assignedGuideUserId String?
+  reason              String
+  evidenceJson        Json?
+  notifiedAt          DateTime?
+  resolvedAt          DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@index([assignedGuideUserId, status])
+  @@index([placeId, status])
 }
 
 model FeatureFlag {
@@ -950,10 +1300,157 @@ model Subscription {
 model Notification {
   id        String    @id @default(uuid())
   userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   type      String
   title     String
   body      String
   data      Json?
   readAt    DateTime?
   createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model AvatarCue {
+  id             String    @id @default(uuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  animationHint  String    @default("wave")
+  deepLink       String?
+  title          String
+  body           String?
+  notificationId String?
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model SubGuideApplication {
+  id                 String                    @id @default(uuid())
+  mainGuideUserId    String
+  mainGuideUser      User                      @relation("SubGuideMain", fields: [mainGuideUserId], references: [id], onDelete: Cascade)
+  email              String
+  displayName        String
+  phone              String?
+  formationNote      String?
+  borderGeoJson      Json
+  status             SubGuideApplicationStatus @default(DRAFT)
+  createdUserId      String?
+  adminReviewedAt    DateTime?
+  adminReviewerId    String?
+  adminNote          String?
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+
+  @@index([mainGuideUserId, status])
+  @@index([status])
+}
+
+model ZoneSafetyAssessment {
+  id              String        @id @default(uuid())
+  cityId          String?
+  districtId      String?
+  hoodId          String?
+  timeContext     TimeContext
+  safetyLevel     SafetyLevel
+  reason          String
+  guideComment    String?
+  zoneCharacter   ZoneCharacter?
+  howToArrive     String?
+  createdByUserId String?
+  createdBy       User?         @relation("ZoneSafetyCreatedBy", fields: [createdByUserId], references: [id])
+  verificationStatus VerificationStatus @default(PENDING)
+  lastReviewedAt  DateTime?
+  freshnessScore  Decimal?      @db.Decimal(5, 2)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([cityId, timeContext])
+  @@index([districtId, timeContext])
+}
+
+model ClientPlan {
+  id                String           @id @default(uuid())
+  userId            String
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cityId            String?
+  title             String
+  status            ClientPlanStatus @default(DRAFT)
+  source            ClientPlanSource @default(MANUAL)
+  /// Trip first calendar day (UTC noon convention for date-only intent)
+  tripStartsOn      DateTime?
+  /// Trip last calendar day (UTC noon convention)
+  tripEndsOn        DateTime?
+  /// Local HH:mm daily window start, e.g. "10:30"
+  dailyStartLocal   String?
+  /// Local HH:mm back-by; null → soft default 22:00
+  dailyEndLocal     String?
+  offlinePayloadJson Json?
+  planPackId        String?
+  planPack          PlanPack?        @relation(fields: [planPackId], references: [id])
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  steps ClientPlanStep[]
+
+  @@index([userId, status])
+}
+
+model ClientPlanStep {
+  id            String   @id @default(uuid())
+  planId        String
+  plan          ClientPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  sortOrder     Int
+  /// 0-based day within the trip
+  dayIndex      Int      @default(0)
+  startsAt      DateTime?
+  placeId       String?
+  eventId       String?
+  freeText      String?
+  durationMin   Int?
+  transportNote String?
+  whyJson       Json?
+  status        String   @default("PENDING")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([planId, sortOrder])
+  @@index([planId, dayIndex])
+}
+
+model PlanPack {
+  id          String   @id @default(uuid())
+  cityId      String?
+  code        String   @unique
+  title       String
+  summary     String?
+  personaHints PersonaType[] @default([])
+  stepsJson   Json
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  plans ClientPlan[]
+}
+
+model TransportScenario {
+  id           String   @id @default(uuid())
+  cityId       String?
+  fromLabel    String
+  toLabel      String
+  stepsJson    Json
+  estCostMin   Decimal? @db.Decimal(12, 2)
+  estCostMax   Decimal? @db.Decimal(12, 2)
+  currency     String   @default("TND") @db.Char(3)
+  estMinutes   Int?
+  pricingModes PricingType[] @default([])
+  guideComment String?
+  verificationStatus VerificationStatus @default(PENDING)
+  lastReviewedAt DateTime?
+  createdByUserId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([cityId])
 }

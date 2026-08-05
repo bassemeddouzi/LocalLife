@@ -39,3 +39,14 @@ export class RefreshDto {
   @IsString()
   refreshToken!: string;
 }
+
+export class GoogleAuthDto {
+  @IsString()
+  @MinLength(20)
+  idToken!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  locale?: string;
+}

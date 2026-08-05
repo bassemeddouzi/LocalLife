@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
-import { LoginDto, RefreshDto, RegisterDto } from './dto/auth.dto';
+import { LoginDto, RefreshDto, RegisterDto, GoogleAuthDto } from './dto/auth.dto';
 import { UpdatePreferencesDto } from './dto/preferences.dto';
 import { Auth, CurrentUser, AuthUser } from './auth.decorators';
 
@@ -31,6 +31,16 @@ export class AuthController {
     @Ip() ip?: string,
   ) {
     return this.auth.login(dto, { userAgent, ip });
+  }
+
+  @Post('google')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  google(
+    @Body() dto: GoogleAuthDto,
+    @Headers('user-agent') userAgent?: string,
+    @Ip() ip?: string,
+  ) {
+    return this.auth.googleSignIn(dto, { userAgent, ip });
   }
 
   @Post('refresh')

@@ -13,6 +13,7 @@ import { apiFetch } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useCity } from '../context/CityContext';
 import { colors } from '../theme';
+import { tabIcon } from './tabIcons';
 
 const Tab = createBottomTabNavigator();
 
@@ -185,17 +186,37 @@ export function BusinessNavigator() {
         headerStyle: { backgroundColor: colors.bg },
       }}
     >
-      <Tab.Screen name="BizHome" component={BizHome} options={{ title: 'Home' }} />
+      <Tab.Screen
+        name="BizHome"
+        component={BizHome}
+        options={{
+          title: 'Home',
+          tabBarIcon: tabIcon('home-outline', 'home'),
+        }}
+      />
       <Tab.Screen
         name="BizProfile"
         component={BizProfile}
-        options={{ title: 'Profile' }}
+        options={{
+          title: 'Profile',
+          tabBarIcon: tabIcon('business-outline', 'business'),
+        }}
       />
-      <Tab.Screen name="BizClaim" component={BizClaim} options={{ title: 'Claim' }} />
+      <Tab.Screen
+        name="BizClaim"
+        component={BizClaim}
+        options={{
+          title: 'Claim',
+          tabBarIcon: tabIcon('checkmark-circle-outline', 'checkmark-circle'),
+        }}
+      />
       <Tab.Screen
         name="BizPlaces"
         component={BizPlaces}
-        options={{ title: 'Places' }}
+        options={{
+          title: 'Places',
+          tabBarIcon: tabIcon('map-outline', 'map'),
+        }}
       />
     </Tab.Navigator>
   );

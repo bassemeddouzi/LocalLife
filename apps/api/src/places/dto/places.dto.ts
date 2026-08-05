@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsBoolean,
   IsEnum,
   IsNumber,
@@ -10,9 +11,17 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { PriceLevel, VerificationStatus } from '@prisma/client';
+import {
+  AccessDifficulty,
+  AudienceTag,
+  BudgetBand,
+  EffortLevel,
+  PriceLevel,
+  VerificationStatus,
+} from '@prisma/client';
 
 export class ListPlacesQueryDto {
   @IsUUID()
@@ -128,6 +137,93 @@ export class CreatePlaceDto {
   @IsOptional()
   @IsEnum(VerificationStatus)
   verificationStatus?: VerificationStatus;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  guideComment?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(24 * 60)
+  typicalDurationMin?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsEnum(AudienceTag, { each: true })
+  audienceTags?: AudienceTag[];
+
+  @IsOptional()
+  @IsEnum(EffortLevel)
+  effortLevel?: EffortLevel;
+
+  @IsOptional()
+  @IsEnum(BudgetBand)
+  budgetBand?: BudgetBand;
+
+  @IsOptional()
+  @IsEnum(AccessDifficulty)
+  accessDifficulty?: AccessDifficulty;
+
+  @IsOptional()
+  @IsBoolean()
+  paidEntry?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  prerequisitesText?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  precautionsText?: string;
+
+  @IsOptional()
+  @IsObject()
+  checklistJson?: Record<string, unknown> | unknown[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  bestArriveText?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  bestLeaveText?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  seasonNote?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  facebookUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  instagramUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  ticketUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  ticketHowTo?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  ticketPriceText?: string;
 }
 
 export class UpdatePlaceDto {
@@ -188,6 +284,122 @@ export class UpdatePlaceDto {
   @IsOptional()
   @IsBoolean()
   isSponsored?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  guideComment?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(24 * 60)
+  typicalDurationMin?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsEnum(AudienceTag, { each: true })
+  audienceTags?: AudienceTag[];
+
+  @IsOptional()
+  @IsEnum(EffortLevel)
+  effortLevel?: EffortLevel;
+
+  @IsOptional()
+  @IsEnum(BudgetBand)
+  budgetBand?: BudgetBand;
+
+  @IsOptional()
+  @IsEnum(AccessDifficulty)
+  accessDifficulty?: AccessDifficulty;
+
+  @IsOptional()
+  @IsBoolean()
+  paidEntry?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  prerequisitesText?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  precautionsText?: string;
+
+  @IsOptional()
+  @IsObject()
+  checklistJson?: Record<string, unknown> | unknown[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  bestArriveText?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  bestLeaveText?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  seasonNote?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  facebookUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  instagramUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  ticketUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  ticketHowTo?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  ticketPriceText?: string;
+}
+
+export class PlaceHourDto {
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(6)
+  dayOfWeek!: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  opensAt?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  closesAt?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isClosed?: boolean;
+}
+
+export class ReplacePlaceHoursDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PlaceHourDto)
+  hours!: PlaceHourDto[];
 }
 
 export class AddPhotoDto {

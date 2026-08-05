@@ -13,6 +13,7 @@ import {
   AddPhotoDto,
   CreatePlaceDto,
   ListPlacesQueryDto,
+  ReplacePlaceHoursDto,
   UpdatePlaceDto,
 } from './dto/places.dto';
 import { PlacesService } from './places.service';
@@ -45,6 +46,16 @@ export class PlacesController {
     @Body() dto: UpdatePlaceDto,
   ) {
     return this.places.update(user, id, dto);
+  }
+
+  @Post(':id/hours')
+  @Auth(UserRole.ADMIN, UserRole.GUIDE)
+  replaceHours(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: ReplacePlaceHoursDto,
+  ) {
+    return this.places.replaceHours(user, id, dto.hours);
   }
 
   @Post(':id/photos')

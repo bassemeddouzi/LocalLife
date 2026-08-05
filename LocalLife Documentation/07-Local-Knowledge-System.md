@@ -1,9 +1,9 @@
 # 07 — Local Knowledge System
 
 **Document type:** Domain model / content architecture  
-**Version:** 1.0  
+**Version:** 2.0 (Vision 2.0 Local Companion)  
 **Language:** English  
-**Why this document exists:** Local transport, laws/practical rules, and arrival procedures differ by country and city. They must be modeled as data, not hardcoded product logic.
+**Why this document exists:** Local transport, laws/practical rules, arrival procedures, zone safety-by-time, and special-place ops differ by country and city. They must be modeled as data, not hardcoded product logic.
 
 ---
 
@@ -34,13 +34,16 @@ Layer C — Procedural guides
 ArrivalGuide, HowToGuide, GuideStep sequences
 
 Layer D — Places & experiences
-Place, Event, Experience, Review
+Place (rich + special checklists), Event, Experience, Review
 
-Layer E — Trust
-verificationStatus, sourceType, trustWeight
+Layer E — Zone intel
+ZoneSafetyAssessment by time context (DAY/NIGHT/WEEKEND) — AI-internal
+
+Layer F — Trust & freshness
+verificationStatus, sourceType, trustWeight, lastReviewedAt, freshnessScore
 ```
 
-AI answers by composing layers B–D inside geographic scope A, filtered by trust E and user profile.
+AI answers by composing layers B–E inside geographic scope A, filtered by trust/freshness F and Client hard filters.
 
 ---
 
@@ -111,15 +114,17 @@ Represents a real local system, e.g.:
 - description / howItWorks
 - accessInstructions (how to find/board)
 - paymentMethods[]
-- pricingType: `FIXED | METERED | ZONE | SUBSCRIPTION | NEGOTIABLE | FREE`
+- pricingType: **`FIXED` | `METERED`** (product language: FIXED vs METER) plus `ZONE | SUBSCRIPTION | NEGOTIABLE | FREE | UNKNOWN`
 - priceMin, priceMax, currency
 - apps / operators (optional links)
-- operatingHours
+- operatingHours / availability notes
 - coverageNotes
 - accessibilityNotes
+- guideComment (Guide narrative; scores are Client-only)
 - warnings[]
-- verificationStatus
-- sourceType
+- verificationStatus, sourceType, lastReviewedAt, freshnessScore
+
+**AI behavior:** prefer best scenario for user (budget, group, time); may propose **transport-only plans**. Always state FIXED vs METER clearly.
 
 ### 4.3 TransportHub
 
@@ -140,8 +145,8 @@ Link hubs to Place (geo) and TransportSystem.
 
 | Local reality | Mode mapping | Pricing type notes |
 | --- | --- | --- |
-| Individual taxi | TAXI | Metered or zone; cash common |
-| Louage | SHARED_TAXI | Fixed-ish per seat/destination; cash |
+| Individual taxi | TAXI | **METER** or zone; cash common |
+| Louage | SHARED_TAXI | **FIXED**-ish per seat/destination; cash |
 | City bus | BUS | Ticket/subscription patterns vary |
 | Ferry to islands | FERRY | Scheduled; ticketed |
 | Ride apps (where available) | RIDE_HAILING | App payment |
@@ -312,96 +317,135 @@ This allows AI and UI to render consistent checklists.
 
 ---
 
-## 9. Content quality standards
+## 9. Zone safety-by-time
+
+### 9.1 ZoneSafetyAssessment
+
+Scoped to city / district / hood. Captures comfort/safety **by time**, not a single static label.
+
+| Field | Notes |
+| --- | --- |
+| timeContext | `DAY` \| `NIGHT` \| `WEEKEND` \| `ANY` |
+| safetyLevel | `VERY_DANGER` … `VERY_GOOD` — **AI-internal** |
+| reason | Why this level |
+| zoneCharacter | `INDUSTRIAL` \| `TOURIST` \| `RESIDENTIAL` \| `MIXED` |
+| howToArrive | Practical arrival note |
+| guideComment | Guide narrative |
+| verificationStatus, lastReviewedAt, freshnessScore | Trust |
+
+### 9.2 Client exposure rule
+
+**Never** dump raw danger labels on Client UI. AI and APIs expose **derived advice** only (“prefer X after dark”, “stick to lit streets”). Full assessments stay Admin/Guide/AI-internal. See [14 — Security](./14-Security-Compliance.md).
+
+---
+
+## 10. Special places (rich Place)
+
+For beaches, viewpoints, heritage sites, adventure spots, etc.:
+
+- ≥3 photos when possible
+- `checklistJson` (what to bring / do)
+- `precautionsText`, `prerequisitesText`
+- `paidEntry`, ticket URL/how-to/price text
+- `bestArriveText` / `bestLeaveText`, `seasonNote`
+- `accessDifficulty`, `effortLevel`, `typicalDurationMin`, `budgetBand`
+- `audienceTags`, `ambienceTags`, `guideComment`
+- Social/contact URLs as available
+
+Gov/shops may stay lighter: location + phone/email (+ photo for shops).
+
+---
+
+## 11. Freshness
+
+| Mechanism | Behavior |
+| --- | --- |
+| `lastReviewedAt` | Set on Guide/Admin review |
+| `freshnessScore` | Derived decay; stale → **AI down-rank** |
+| Monthly refresh | Notify Guide (Avatar/in-app) to re-verify |
+| Client report | inaccurate/closed → Admin → Guide verify → update → replan + Avatar cue |
+
+Volatile entities (prices, hours, transport, zone safety, special-place ops) must carry review metadata.
+
+---
+
+## 12. Content quality standards
 
 Every local-knowledge item should have:
 
 1. Clear geographic scope
 2. Short AI-ready summary
-3. Detailed body
+3. Detailed body / structured fields
 4. Source/trust metadata
-5. Review date
-6. Language/translation support
+5. Review date + freshness
+6. Language (Guide author language; translation later)
 7. Approval state
 
 **Bad:** 2,000-character blog paste with no structure.  
-**Good:** summary + steps + warnings + linked entities.
+**Good:** summary + steps/checklist + warnings + linked entities.
 
 ---
 
-## 10. Retrieval strategy for AI
+## 13. Retrieval strategy for AI
 
-When user asks a procedural question:
-
-1. Detect intent: arrival / transport / rules / place discovery
+1. Detect intent: arrival / transport / rules / place / zone / plan
 2. Resolve city from GPS or profile
-3. Query relevant tables with city/country scope
-4. Rank by severity, verification, distance, audience fit
-5. Generate answer that references entities
-6. If missing data → say so and ask clarifying question
+3. Apply Client **hard filters** before ranking
+4. Query with city/country scope; prefer APPROVED
+5. Rank by severity, verification, distance, audience fit, **freshness**
+6. For zone questions: use ZoneSafetyAssessment internally → phrased advice only
+7. Generate answer with citations; if missing data → say so
 
 ---
 
-## 11. Djerba MVP minimum knowledge set
-
-Before launch, seed at least:
+## 14. Djerba MVP minimum knowledge set
 
 1. Airport arrival guide (full steps)
-2. Taxi system notes + payment
-3. Louage system notes (if applicable to user routes)
-4. Major hubs (airport, Houmt Souk, Midoun, key stands)
-5. Safety/practical rules (night movement, tourist zones, emergency numbers)
+2. Taxi + louage systems with **FIXED vs METER** clarity
+3. Major hubs (airport, Houmt Souk, Midoun, key stands)
+4. Zone safety-by-time samples for priority districts (AI-internal)
+5. Safety/practical LocalRules + emergency numbers
 6. SIM/money first-hour tips
-7. 50–200 quality places across priority categories
-8. Core events/experiences sample set
+7. Special places with checklists (beaches, viewpoints, etc.)
+8. 50–200 quality places + core events/experiences
+9. Plan packs (arrival, student, family, transport-only…)
 
 Depth beats quantity.
 
 ---
 
-## 12. Internationalization implications
+## 15. Internationalization implications
 
-Do **not** encode:
+Do **not** encode `if country == 'TN' specialTaxiLogic()`.  
+Do encode `TransportSystem where cityId = X`.
 
-```text
-if country == 'TN' specialTaxiLogic()
-```
-
-Do encode:
-
-```text
-TransportSystem where cityId = X
-```
-
-UI may have translations; logic remains data-driven.
+UI translations ship in MVP; **Guide content translation is later** (doc 06).
 
 ---
 
-## 13. Editorial workflow
+## 16. Editorial workflow
 
 ```text
 Guide/Admin draft
   → pending review
   → approved
   → AI-retrievable
-  → periodic re-review (especially rules & prices)
+  → monthly freshness nudge
+  → no update → down-rank
 ```
-
-Price and transport norms change — schedule reviews.
 
 ---
 
-## 14. Summary
+## 17. Summary
 
-The Local Knowledge System turns LocalLife from “maps with a chatbot” into a **city operating manual**:
+City operating manual for the companion:
 
-- TransportSystem + hubs + payments
-- LocalRule packs
-- ArrivalGuide + GuideStep playbooks
-- Trust and scope metadata
+- TransportSystem (FIXED/METER) + hubs + scenarios
+- ZoneSafetyAssessment by time (redacted for Clients)
+- Special-place checklists + rich Place fields
+- LocalRule + Arrival/HowTo playbooks
+- Freshness + trust metadata
 - Country-pack expansion model
-
-This must be designed **before** database lock-in.
 
 ---
 

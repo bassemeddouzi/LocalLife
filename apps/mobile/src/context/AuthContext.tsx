@@ -9,6 +9,8 @@ import React, {
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFetch } from '../api/client';
+import { signOutFromGoogle } from '../auth/googleSignIn';
+import i18n from '../i18n';
 
 export type UserMe = {
   id: string;
@@ -17,6 +19,7 @@ export type UserMe = {
   displayName: string;
   locale: string;
   personaType?: string | null;
+  onboardingCompletedAt?: string | null;
   preference?: {
     budgetBand?: string;
     homeCityId?: string | null;
@@ -52,13 +55,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const me = await apiFetch<UserMe>('/v1/auth/me');
     setUser(me);
+    const preferred = (me.locale ?? '').toLowerCase().split('-')[0];
+    if (preferred && ['en', 'fr', 'ar'].includes(preferred)) {
+      await i18n.changeLanguage(preferred);
+    }
     // Guide / Business skip tourist onboarding
     if (me.role === 'GUIDE' || me.role === 'BUSINESS' || me.role === 'ADMIN') {
       setNeedsOnboarding(false);
       return;
     }
-    const onboarded = await AsyncStorage.getItem(`onboarded:${me.id}`);
-    setNeedsOnboarding(!onboarded);
+    // Server is source of truth (Google + email new accounts)
+    const serverDone = Boolean(me.onboardingCompletedAt);
+    if (serverDone) {
+      await AsyncStorage.setItem(`onboarded:${me.id}`, '1');
+      setNeedsOnboarding(false);
+      return;
+    }
+    setNeedsOnboarding(true);
   }, []);
 
   useEffect(() => {
@@ -97,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore
     }
+    await signOutFromGoogle();
     await SecureStore.deleteItemAsync('accessToken');
     await SecureStore.deleteItemAsync('refreshToken');
     setUser(null);

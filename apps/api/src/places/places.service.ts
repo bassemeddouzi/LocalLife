@@ -22,8 +22,10 @@ import {
   AddPhotoDto,
   CreatePlaceDto,
   ListPlacesQueryDto,
+  PlaceHourDto,
   UpdatePlaceDto,
 } from './dto/places.dto';
+import { assertGuidePointInScope } from '../guides/guide-scope';
 
 const publicSelect = {
   id: true,
@@ -48,6 +50,26 @@ const publicSelect = {
   publishedAt: true,
   createdAt: true,
   updatedAt: true,
+  audienceTags: true,
+  typicalDurationMin: true,
+  effortLevel: true,
+  budgetBand: true,
+  guideComment: true,
+  lastReviewedAt: true,
+  freshnessScore: true,
+  accessDifficulty: true,
+  paidEntry: true,
+  prerequisitesText: true,
+  precautionsText: true,
+  checklistJson: true,
+  bestArriveText: true,
+  bestLeaveText: true,
+  seasonNote: true,
+  facebookUrl: true,
+  instagramUrl: true,
+  ticketUrl: true,
+  ticketHowTo: true,
+  ticketPriceText: true,
   primaryCategory: { select: { id: true, key: true, name: true, icon: true } },
   photos: {
     where: { status: VerificationStatus.APPROVED },
@@ -66,9 +88,88 @@ const publicSelect = {
   },
 } satisfies Prisma.PlaceSelect;
 
+type HourRow = {
+  dayOfWeek: number;
+  opensAt: string | null;
+  closesAt: string | null;
+  isClosed: boolean;
+};
+
+/** Compute whether a place is open now from PlaceHour rows (dayOfWeek 0=Sun..6=Sat). */
+export function computeOpenNow(
+  hours: HourRow[],
+  now: Date = new Date(),
+): boolean | null {
+  if (!hours.length) return null;
+  const day = now.getDay();
+  const today = hours.filter((h) => h.dayOfWeek === day);
+  if (!today.length) return null;
+  if (today.every((h) => h.isClosed)) return false;
+
+  const mins = now.getHours() * 60 + now.getMinutes();
+  let sawOpenWindow = false;
+  for (const h of today) {
+    if (h.isClosed) continue;
+    if (!h.opensAt || !h.closesAt) continue;
+    sawOpenWindow = true;
+    const [oh, om] = h.opensAt.split(':').map(Number);
+    const [ch, cm] = h.closesAt.split(':').map(Number);
+    if ([oh, om, ch, cm].some((n) => Number.isNaN(n))) continue;
+    const open = oh * 60 + om;
+    const close = ch * 60 + cm;
+    if (close <= open) {
+      if (mins >= open || mins < close) return true;
+    } else if (mins >= open && mins < close) {
+      return true;
+    }
+  }
+  if (!sawOpenWindow) return null;
+  return false;
+}
+
+function richFieldsFromUpdate(dto: UpdatePlaceDto): Prisma.PlaceUpdateInput {
+  const data: Prisma.PlaceUpdateInput = {};
+  if (dto.guideComment !== undefined) data.guideComment = dto.guideComment;
+  if (dto.typicalDurationMin !== undefined) {
+    data.typicalDurationMin = dto.typicalDurationMin;
+  }
+  if (dto.audienceTags !== undefined) data.audienceTags = dto.audienceTags;
+  if (dto.effortLevel !== undefined) data.effortLevel = dto.effortLevel;
+  if (dto.budgetBand !== undefined) data.budgetBand = dto.budgetBand;
+  if (dto.accessDifficulty !== undefined) {
+    data.accessDifficulty = dto.accessDifficulty;
+  }
+  if (dto.paidEntry !== undefined) data.paidEntry = dto.paidEntry;
+  if (dto.prerequisitesText !== undefined) {
+    data.prerequisitesText = dto.prerequisitesText;
+  }
+  if (dto.precautionsText !== undefined) {
+    data.precautionsText = dto.precautionsText;
+  }
+  if (dto.checklistJson !== undefined) {
+    data.checklistJson = dto.checklistJson as Prisma.InputJsonValue;
+  }
+  if (dto.bestArriveText !== undefined) data.bestArriveText = dto.bestArriveText;
+  if (dto.bestLeaveText !== undefined) data.bestLeaveText = dto.bestLeaveText;
+  if (dto.seasonNote !== undefined) data.seasonNote = dto.seasonNote;
+  if (dto.facebookUrl !== undefined) data.facebookUrl = dto.facebookUrl;
+  if (dto.instagramUrl !== undefined) data.instagramUrl = dto.instagramUrl;
+  if (dto.ticketUrl !== undefined) data.ticketUrl = dto.ticketUrl;
+  if (dto.ticketHowTo !== undefined) data.ticketHowTo = dto.ticketHowTo;
+  if (dto.ticketPriceText !== undefined) {
+    data.ticketPriceText = dto.ticketPriceText;
+  }
+  return data;
+}
+
 @Injectable()
 export class PlacesService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /** Alias for openNow helper used by public detail. */
+  openNow(hours: HourRow[], now?: Date): boolean | null {
+    return computeOpenNow(hours, now);
+  }
 
   async listPublic(query: ListPlacesQueryDto) {
     const page = clampPage(query.page);
@@ -99,6 +200,9 @@ export class PlacesService {
       ...p,
       latitude: Number(p.latitude),
       longitude: Number(p.longitude),
+      freshnessScore:
+        p.freshnessScore != null ? Number(p.freshnessScore) : null,
+      openNow: this.openNow(p.hours),
       distanceMeters:
         query.lat != null && query.lng != null
           ? haversineMeters(
@@ -141,6 +245,12 @@ export class PlacesService {
       ...place,
       latitude: Number(place.latitude),
       longitude: Number(place.longitude),
+      freshnessScore:
+        place.freshnessScore != null ? Number(place.freshnessScore) : null,
+      openNow: this.openNow(place.hours),
+      checklistJson: place.checklistJson,
+      guideComment: place.guideComment,
+      lastReviewedAt: place.lastReviewedAt,
     };
   }
 
@@ -165,6 +275,12 @@ export class PlacesService {
       if (!profile || profile.status !== 'APPROVED') {
         throw new ForbiddenException('Guide not approved');
       }
+      await assertGuidePointInScope(
+        this.prisma,
+        user.id,
+        dto.latitude,
+        dto.longitude,
+      );
     }
 
     let status: VerificationStatus = VerificationStatus.PENDING;
@@ -199,7 +315,7 @@ export class PlacesService {
         ? { attributes: dto.attributes }
         : undefined;
 
-    const place = await this.prisma.place.create({
+    return this.prisma.place.create({
       data: {
         cityId: dto.cityId,
         name: dto.name,
@@ -214,6 +330,31 @@ export class PlacesService {
         priceLevel: dto.priceLevel,
         primaryCategoryId,
         metadata: metadata ?? undefined,
+        audienceTags: dto.audienceTags ?? [],
+        typicalDurationMin: dto.typicalDurationMin,
+        effortLevel: dto.effortLevel,
+        budgetBand: dto.budgetBand,
+        guideComment: dto.guideComment,
+        accessDifficulty: dto.accessDifficulty,
+        paidEntry: dto.paidEntry,
+        prerequisitesText: dto.prerequisitesText,
+        precautionsText: dto.precautionsText,
+        checklistJson:
+          dto.checklistJson !== undefined
+            ? (dto.checklistJson as Prisma.InputJsonValue)
+            : undefined,
+        bestArriveText: dto.bestArriveText,
+        bestLeaveText: dto.bestLeaveText,
+        seasonNote: dto.seasonNote,
+        facebookUrl: dto.facebookUrl,
+        instagramUrl: dto.instagramUrl,
+        ticketUrl: dto.ticketUrl,
+        ticketHowTo: dto.ticketHowTo,
+        ticketPriceText: dto.ticketPriceText,
+        lastReviewedAt:
+          user.role === UserRole.GUIDE || user.role === UserRole.ADMIN
+            ? new Date()
+            : undefined,
         verificationStatus: status,
         sourceType:
           user.role === UserRole.GUIDE
@@ -224,8 +365,6 @@ export class PlacesService {
       },
       select: publicSelect,
     });
-
-    return place;
   }
 
   async update(user: AuthUser, id: string, dto: UpdatePlaceDto) {
@@ -267,12 +406,64 @@ export class PlacesService {
               ? { connect: { id: dto.primaryCategoryId } }
               : undefined,
             isSponsored: isAdmin ? dto.isSponsored : undefined,
+            ...richFieldsFromUpdate(dto),
+            ...((user.role === UserRole.GUIDE || isAdmin) &&
+            (isCreator || isAdmin)
+              ? { lastReviewedAt: new Date() }
+              : {}),
           };
 
     return this.prisma.place.update({
       where: { id },
       data,
       select: publicSelect,
+    });
+  }
+
+  async replaceHours(
+    user: AuthUser,
+    placeId: string,
+    hours: PlaceHourDto[],
+  ) {
+    const place = await this.prisma.place.findFirst({
+      where: { id: placeId, deletedAt: null },
+    });
+    if (!place) throw new NotFoundException('Place not found');
+
+    const isAdmin = user.role === UserRole.ADMIN;
+    const isCreator = place.createdByUserId === user.id;
+    if (!isAdmin && !isCreator) {
+      throw new ForbiddenException('Not allowed to update hours for this place');
+    }
+    if (user.role === UserRole.GUIDE) {
+      const profile = await this.prisma.guideProfile.findUnique({
+        where: { userId: user.id },
+      });
+      if (!profile || profile.status !== 'APPROVED') {
+        throw new ForbiddenException('Guide not approved');
+      }
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.placeHour.deleteMany({ where: { placeId } }),
+      this.prisma.placeHour.createMany({
+        data: hours.map((h) => ({
+          placeId,
+          dayOfWeek: h.dayOfWeek,
+          opensAt: h.opensAt ?? null,
+          closesAt: h.closesAt ?? null,
+          isClosed: h.isClosed ?? false,
+        })),
+      }),
+      this.prisma.place.update({
+        where: { id: placeId },
+        data: { lastReviewedAt: new Date() },
+      }),
+    ]);
+
+    return this.prisma.placeHour.findMany({
+      where: { placeId },
+      orderBy: { dayOfWeek: 'asc' },
     });
   }
 

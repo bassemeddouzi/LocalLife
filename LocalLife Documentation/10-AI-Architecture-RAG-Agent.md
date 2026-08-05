@@ -1,7 +1,7 @@
 # 10 — AI Architecture (RAG → Agent)
 
 **Document type:** AI system design  
-**Version:** 1.0  
+**Version:** 2.0 (Vision 2.0 Local Companion)  
 **Language:** English
 
 ---
@@ -9,35 +9,37 @@
 ## 1. AI philosophy
 
 The AI must **not invent local facts**.  
-It answers from verified LocalLife knowledge, then uses an LLM to phrase a helpful response.
+It answers from verified LocalLife knowledge, applies Client **hard filters**, prefers **fresh** content, and can turn answers into **editable plans** — surfaced via chat and the floating Avatar.
 
 ```text
-Fluency is secondary. Grounding is primary.
+Fluency is secondary. Grounding + filters + freshness are primary.
 ```
 
 ---
 
-## 2. High-level workflow (MVP Chat)
+## 2. High-level workflow (companion)
 
 ```text
-User question
+User question / pack request
   + GPS / city
-  + user preferences
+  + UserPreference (hardFiltersJson + identity)
   ↓
-Intent detection (place | transport | arrival | rules | event | mixed)
+Intent (place | transport | arrival | rules | zone | plan | mixed)
   ↓
-Retrieve candidates from DB (and embeddings later)
+Retrieve APPROVED candidates
   ↓
-Rank/filter (distance, budget, audience, hours, trust, sponsorship rules)
+Hard-filter (drop blocked) → rank (distance, budget, audience, hours, trust, freshness, sponsorship rules)
+  ↓
+Zone safety: use assessments internally → derived advice only
   ↓
 Build grounded context pack
   ↓
-LLM generate answer with citations
+LLM answer + citations + optional plan draft
   ↓
-Store message + citations
-  ↓
-Return text + UI cards
+Store message / plan / AvatarCue as needed
 ```
+
+Mock AI when OpenRouter key empty; never invent local facts in either mode.
 
 ---
 
@@ -45,149 +47,121 @@ Return text + UI cards
 
 | Component | Responsibility |
 | --- | --- |
-| Orchestrator | conversation state machine |
+| Orchestrator | conversation + plan state |
 | Intent router | choose tools |
-| Retrievers | query Postgres entities |
-| Ranker | score candidates |
+| Retrievers | Postgres entities |
+| Hard-filter gate | enforce preference rules |
+| Freshness ranker | down-rank stale `freshnessScore` / `lastReviewedAt` |
 | Grounding guard | block ungrounded local claims |
-| LLM provider | generation |
-| Tool runtime | execute typed tools |
-| Memory store | Conversation/Message tables |
-| Action layer (future) | agent proposals/executions |
+| Safety redactor | strip raw SafetyLevel from Client-facing payloads |
+| LLM provider | OpenRouter (Admin-switchable model) |
+| Avatar cue writer | notify / soft-warn / celebrate |
+| Action layer (future) | booking agent |
 
 ---
 
-## 4. MVP tools
+## 4. Tools
 
-1. `searchPlaces(cityId, query, lat, lng, filters)`
-2. `getPlaceDetails(placeId)`
-3. `searchEvents(cityId, timeRange, filters)`
-4. `getTransportOptions(cityId, from, to)`
-5. `getArrivalGuide(cityId|airportPlaceId)`
-6. `getLocalRules(cityId, category, audience)`
-7. `searchHowToGuides(cityId, query)`
+### 4.1 Knowledge (MVP)
 
-All tools return structured JSON, not free prose.
+1. `searchPlaces` / `getPlaceDetails`
+2. `searchEvents`
+3. `getTransportOptions` (FIXED vs METER clarity)
+4. `getArrivalGuide` / `searchHowToGuides`
+5. `getLocalRules`
+6. `getZoneAdvice` — derived tips only
+
+### 4.2 Plan tools (Vision 2.0)
+
+7. `listPlanPacks` / `instantiatePlanPack`
+8. `createOrUpdatePlan` / `addPlanSteps`
+9. `getActivePlan` / `markStepDone`
+
+### 4.3 Avatar cues
+
+10. `enqueueAvatarCue` (system) — freshness, replan, plan saved, calm tips
+
+Future (not MVP): `proposeBooking`, `confirmBooking`, in-app turn-by-turn.
 
 ---
 
 ## 5. Ranking signals
 
-- Distance
-- Interest match
-- Budget/price level fit
-- Opening hours now/soon
-- Ratings & popularity
-- Trust/verification
-- Audience fit (student/tourist/…)
-- Sponsorship (eligible but labeled; never silently dominate)
-
-Weather can be added later as a signal.
+- Hard filters (binary reject)
+- Freshness / lastReviewedAt (stale → down-rank, not hide if only option — disclose uncertainty)
+- Distance, budget, hours, audience fit, trust
+- Sponsorship eligible but labeled
+- Conservatism / vibe / setting / group as soft rank after hard filters
 
 ---
 
-## 6. Prompting rules (system policy)
+## 6. Prompting rules
 
-1. Use only provided context for local facts.
-2. If context insufficient → say what is missing; ask a clarifying question.
-3. Explain why options were chosen.
-4. Prefer safer recommendations when confidence is low.
-5. Mark sponsored recommendations clearly.
-6. Do not provide illegal instructions; for legal/visa topics, summarize LocalRule and point to official sources.
-7. Match user locale/language when possible.
+1. Local facts only from context.
+2. Insufficient context → say so; clarify.
+3. Explain why options fit the user.
+4. Prefer safer phrasing; **never** dump “VERY_DANGER” style labels.
+5. Mark sponsored clearly.
+6. Legal/visa: summarize LocalRule + official sources.
+7. Match UI locale; Guide excerpts may stay in author language until translation.
 
 ---
 
 ## 7. Grounding & citation
 
-Every assistant message that references local entities should create `MessageCitation` rows.
-
-Client UI can show “Based on verified LocalLife data” and links to entities.
-
-**Metric:** `% grounded answers` should be tracked.
+`MessageCitation` on entity references. Track `% grounded answers`. Plans store `whyJson` per step.
 
 ---
 
 ## 8. RAG evolution
 
-### Phase 1 (MVP)
-SQL/filtered retrieval + summaries in prompt context.
-
-### Phase 2
-Add embeddings table (`EntityEmbedding`) + vector search for semantic recall, still constrained to approved entities.
-
-### Phase 3
-Hybrid retrieval (keyword + vector + geo).
+Phase 1: SQL/filtered retrieval.  
+Phase 2: `EntityEmbedding` + vector.  
+Phase 3: hybrid keyword + vector + geo.
 
 ---
 
-## 9. From Chat to Agent
+## 9. From Chat companion to Agent
 
-### Chat (now)
-Request → answer.
-
-### Agent (later)
-Observe context → propose actions → wait for approval → execute tools with side effects.
-
-Examples of future tools:
-
-- `createItinerary`
-- `proposeBooking`
-- `confirmBooking` (requires explicit user approval)
-- `sendNotificationSchedule`
-- `updatePreferences`
-
-### Safety for agent actions
-
-- Explicit user confirmation for irreversible actions
-- `AiActionLog` audit trail
-- Feature flag `FF_AI_AGENT`
-- Permission scopes per action
+**Now:** answer + plans + Avatar cues.  
+**Later:** observe → propose → approve → execute (bookings, schedules) with `AiActionLog` + `FF_AI_AGENT`.
 
 ---
 
 ## 10. Personalization memory
 
-**MVP:** preferences + conversation history.  
-**Later:** durable travel memory (liked cuisines, avoided areas, walking tolerance) with consent.
-
-Store memory as structured preference updates, not only hidden prompt text.
+MVP: preferences + hard filters + conversation + active plan.  
+Later: durable travel memory with consent.
 
 ---
 
 ## 11. Failure modes
 
-| Failure | Product behavior |
+| Failure | Behavior |
 | --- | --- |
-| No DB matches | Honest empty state + broaden filters |
-| LLM outage | Return ranked entity cards without fancy prose if possible |
-| Tool timeout | Partial answer + retry suggestion |
-| Suspected hallucination | Guardrail rejects; regenerate or fallback template |
+| No matches after filters | Honest empty + suggest relaxing a soft preference (never silently break hard filters) |
+| Stale-only results | Answer with freshness caveat + Avatar refresh path for Guides |
+| LLM outage | Ranked cards / plan template without prose if possible |
+| Suspected hallucination | Guardrail reject / regenerate |
 
 ---
 
 ## 12. Evaluation checklist
 
-Before production prompts go live:
-
-- Airport arrival questions
-- Transport payment questions
-- Budget food near me
-- Safety neighborhood questions
-- “Hidden local” vs tourist trap
-- Missing-data behavior
+- Hard filter never violated
+- Freshness down-rank observable
+- Airport / FIXED-METER transport
+- Zone advice without raw danger enums
+- Pack → plan → Avatar cue
+- Report → replan cue
 - Sponsorship disclosure
-- Multilingual request handling
+- Multilingual UI requests
 
 ---
 
 ## 13. Cost controls
 
-- Cache frequent retrievals per city
-- Limit context token size
-- Rate limit heavy users
-- Smaller model for intent/routing; stronger model for final answer (optional)
-- Monitor cost per successful session
+Cache city retrievals · limit context tokens · rate limits · Admin model switch · cost per session
 
 ---
 

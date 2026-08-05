@@ -1,0 +1,125 @@
+{
+  "pack": "djerba-real-v1",
+  "transportSystems": [
+    {
+      "code": "djerba-taxi",
+      "name": "Djerba yellow taxis",
+      "mode": "TAXI",
+      "summary": "Metered or negotiated island taxis. Prefer official ranks.",
+      "howItWorks": "Wave or go to a rank. Confirm destination and fare before departure if meter is off.",
+      "pricingType": "METERED",
+      "priceMin": 3,
+      "priceMax": 45,
+      "paymentMethods": ["CASH"],
+      "warnings": ["Agree fare at night and from airport", "Keep small notes"]
+    },
+    {
+      "code": "djerba-louage",
+      "name": "Louage (shared taxi)",
+      "mode": "SHARED_TAXI",
+      "summary": "Shared vans/cars on fixed corridors — cheap and local.",
+      "howItWorks": "Go to louage station, say destination, wait for seats to fill, pay per seat.",
+      "pricingType": "FIXED",
+      "priceMin": 1,
+      "priceMax": 8,
+      "paymentMethods": ["CASH"],
+      "warnings": ["Depart when full — wait times vary", "Luggage space limited"]
+    },
+    {
+      "code": "djerba-bus",
+      "name": "SNTRI / local buses",
+      "mode": "BUS",
+      "summary": "Intercity and island bus links — slower but cheap.",
+      "howItWorks": "Check station boards; buy ticket or pay on board depending on line.",
+      "pricingType": "FIXED",
+      "priceMin": 1,
+      "priceMax": 12,
+      "paymentMethods": ["CASH"],
+      "warnings": ["Schedules thin in evenings"]
+    },
+    {
+      "code": "djerba-ferry-ajim",
+      "name": "Ajim–Jorf ferry",
+      "mode": "FERRY",
+      "summary": "Car/passenger ferry connecting Djerba to mainland near Ajim.",
+      "howItWorks": "Queue at Ajim or Jorf terminal; frequent daytime crossings.",
+      "pricingType": "FIXED",
+      "priceMin": 1,
+      "priceMax": 25,
+      "paymentMethods": ["CASH"],
+      "warnings": ["Peak queues in summer"]
+    },
+    {
+      "code": "djerba-bike-rental",
+      "name": "Bike rental (tourist zones)",
+      "mode": "BIKE",
+      "summary": "Day rentals near hotels and Midoun.",
+      "howItWorks": "Passport deposit often required; check brakes and lights.",
+      "pricingType": "FIXED",
+      "priceMin": 10,
+      "priceMax": 40,
+      "paymentMethods": ["CASH", "CARD"],
+      "warnings": ["Roads can be uneven; wear a helmet if provided"]
+    },
+    {
+      "code": "djerba-scooter",
+      "name": "Scooter rental",
+      "mode": "SCOOTER",
+      "summary": "Popular for Midoun–beach hops.",
+      "howItWorks": "International license sometimes requested; inspect scooter before leaving.",
+      "pricingType": "FIXED",
+      "priceMin": 25,
+      "priceMax": 80,
+      "paymentMethods": ["CASH", "CARD"],
+      "warnings": ["Night riding without lights is risky"]
+    },
+    {
+      "code": "djerba-car-rental",
+      "name": "Car rental agencies",
+      "mode": "CAR_RENTAL",
+      "summary": "Airport and town agencies for full-island mobility.",
+      "howItWorks": "Book ahead in peak season; check insurance excess.",
+      "pricingType": "FIXED",
+      "priceMin": 80,
+      "priceMax": 250,
+      "paymentMethods": ["CARD", "CASH"],
+      "warnings": ["Fuel stations sparse in some south villages"]
+    },
+    {
+      "code": "djerba-airport-shuttle",
+      "name": "Hotel / airport transfers",
+      "mode": "AIRPORT_SHUTTLE",
+      "summary": "Pre-booked transfers from DJE airport to hotels.",
+      "howItWorks": "Arrange via hotel; driver meets with name sign in arrivals.",
+      "pricingType": "FIXED",
+      "priceMin": 25,
+      "priceMax": 80,
+      "paymentMethods": ["CASH", "CARD"],
+      "warnings": ["Confirm pickup time for late flights"]
+    },
+    {
+      "code": "djerba-walk",
+      "name": "Walking (town centres)",
+      "mode": "WALK",
+      "summary": "Fine inside Houmt Souk medina and Midoun centre for short hops.",
+      "howItWorks": "Use sidewalks where available; midday heat is intense.",
+      "pricingType": "FREE",
+      "priceMin": 0,
+      "priceMax": 0,
+      "paymentMethods": [],
+      "warnings": ["Carry water in summer"]
+    },
+    {
+      "code": "djerba-private-car",
+      "name": "Private car / own vehicle",
+      "mode": "OTHER",
+      "summary": "If you already have a car/scooter on the island.",
+      "howItWorks": "Park carefully in medina; watch one-way streets.",
+      "pricingType": "FREE",
+      "priceMin": 0,
+      "priceMax": 15,
+      "paymentMethods": [],
+      "warnings": ["Fuel + parking only"]
+    }
+  ]
+}

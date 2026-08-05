@@ -1,196 +1,162 @@
 # 11 — Mobile Architecture
 
 **Document type:** Client architecture  
-**Version:** 1.1  
+**Version:** 2.0 (Vision 2.0 Local Companion)  
 **Language:** English  
-**Stack:** React Native + TypeScript
+**Stack:** Expo / React Native + TypeScript
 
-> Performance/cache and i18n rules: [20 — Non-Functional Requirements](./20-Non-Functional-Requirements.md)
+> Performance/cache and i18n: [20 — Non-Functional Requirements](./20-Non-Functional-Requirements.md)  
+> UX doctrine: Phase 05c design system (companion, not map browser)
 
 ---
 
 ## 1. Goals
 
-- One codebase for iOS and Android
-- Feature-based structure for scale
-- Fast AI chat UX with entity cards
-- GPS-aware home and recommendations
-- Offline cache for limited use
-- App must feel light (no lag): pagination, image compression, Query caching
-- Multi-language UI with RTL support for Arabic
+- One binary: Client + Guide + Business role navigators
+- Vision-first **Client IA** + floating **AI Avatar**
+- Guide **contribution workspace** + SubGuide team map
+- Fast grounded chat with entity cards and plan save
+- Limited offline: active plan + emergency + Avatar cues
+- Multi-language UI with RTL
 
 ---
 
 ## 2. Navigation
 
 ### Auth stack
-Splash → Welcome → Login/Register → Onboarding preferences
+Splash → Landing/Welcome → Login/Register → Onboarding (identity + optional hard filters)
 
-### Main tabs (bottom navigation)
-1. **Home**
-2. **Explore**
-3. **Chat**
-4. **Saved**
-5. **Profile**
+### Client tabs (Vision 2.0 IA)
+
+| Tab | Job |
+| --- | --- |
+| **For You / Plans** | Persona packs, progressive plan timeline, emergency strip |
+| **Search** | Universal search → safe detail → add to plan / ask / report |
+| **AI Chat** | Grounded answers + plan builder + why-chips |
+| **Saved** | Favorites + plans; open companion |
+| **Profile** | Identity, hard filters, language, consents |
+
+### Avatar overlay
+Draggable floating companion on Client navigator (not a tab). Snap corners; never fully block primary CTAs. RTL docks flip.
+
+### Guide tabs (team-aware)
+Home / Map (my zone green + SubGuide borders) / Add (rich forms) / Activity / Profile + **Team** (Add SubGuide → draw border → Waiting Admin)
+
+### Business
+Claim/profile navigator (Phase 05b) — unchanged intent.
 
 ### Common stacks
-Place Details, Event Details, Experience Details, Arrival Guide, Transport Guide, Settings
+Place/Event/Experience detail, Plan detail/editor, Arrival/Transport guides, Settings
 
 ---
 
 ## 3. Screen responsibilities
 
-### Home
-- Current city/GPS state
-- AI shortcut
-- Categories
-- Nearby recommendations
-- Events highlights
-- Arrival CTA if newly arrived / airport geofence later
+### For You / Plans
+- Packs by persona
+- Active plan timeline (motion)
+- Emergency strip
+- Entry to Chat / Avatar
 
-### Explore
-- Map + list toggle
-- Filters (category, price, distance, open now)
-- Search
+### Search
+- Query + filters; detail with add-to-plan / ask / report
+- No Google-Maps-clone chrome as primary metaphor
 
 ### Chat
-- Conversation list + active thread
-- Composer
-- Streaming/typed assistant responses
-- Citation cards (place/transport/rule/guide)
+- Threads, streaming, citations, save-as-plan
 
 ### Saved
-- Favorites by type
-- (Later) trips/itineraries
+- Favorites + saved/active plans
 
 ### Profile
-- Persona, interests, budget, language
-- Notification settings
-- Legal links / logout
+- Purpose, conservatism, budget, walks/vehicle, vibe, setting, group, hard filters, language
+
+### Guide Map / Team
+- Parent zone + child borders
+- Propose SubGuide flow
 
 ---
 
-## 4. Folder structure
+## 4. Avatar component
+
+| State | Behavior |
+| --- | --- |
+| idle | breathe |
+| notify | badge + soft pulse |
+| speak | chat active |
+| celebrate | plan saved |
+| soft-warn | replan available (calm copy) |
+
+Tap → sheet: unread cues, Open chat, Continue plan, Hide for session.  
+Reduce-motion: static icon + badge.  
+APIs: `/v1/me/avatar-cues`, notifications.
+
+---
+
+## 5. Folder structure (indicative)
 
 ```text
 src/
-  app/                 # providers, entry
-  features/
-    auth/
-    home/
-    explore/
-    chat/
-    places/
-    events/
-    experiences/
-    saved/
-    profile/
-    localKnowledge/
-  components/          # shared UI
-  navigation/
-  services/            # API clients
-  hooks/
-  store/               # if needed
-  utils/
-  assets/
+  navigation/          # Main, Guide, Business navigators
+  screens/
+    guide/             # forms, map, team/subguide
+    ...
+  components/          # AvatarFloating, shared UI
+  context/             # Auth
+  services/            # API clients (plans, avatar, guides)
+  i18n/
   theme/
-  types/
 ```
-
-Feature modules own screens, hooks, and API calls for that domain.
 
 ---
 
-## 5. State & data fetching
+## 6. State & data
 
-Recommended approach:
-
-- Server state via React Query / TanStack Query
-- Light local UI state via React state / context
-- Secure token storage (Keychain/Keystore wrappers)
+- TanStack Query for server state
+- Secure token storage
+- Offline payload on `ClientPlan.offlinePayloadJson` + cue cache
 - Avoid overusing global stores
 
 ---
 
-## 6. Services layer
+## 7. Services
 
-- `authService`
-- `placesService`
-- `eventsService`
-- `aiService`
-- `localKnowledgeService`
-- `favoritesService`
-- `locationService`
+`auth` · `places` · `events` · `ai` · `plans` · `avatar` · `localKnowledge` · `favorites` · `guides` (scope/subguides) · `location`
 
-All HTTP through one API client with refresh-token interceptor.
+HTTP client with refresh interceptor.
 
 ---
 
-## 7. Location strategy
+## 8. Location
 
-1. Request permission with clear rationale
-2. Fallback to manual city picker
-3. Pass lat/lng to AI and search endpoints
-4. Debounce location updates
-5. Deep-link to external maps for turn-by-turn
+Permission with rationale → manual city fallback → lat/lng to AI/search → **external maps deep link** for directions (turn-by-turn = future).
 
 ---
 
-## 8. Offline strategy (MVP)
+## 9. Offline (companion MVP)
 
-Cache:
-
-- recent place details viewed
-- favorites
-- user preferences + consents
-- last arrival guide / transport systems for current city
-- categories for current city
-
-Show explicit offline banner.  
-AI requires network in MVP.
-
-### Cache TTLs (guideline)
-
-| Resource | Client TTL guideline |
-| --- | --- |
-| Categories | 12–24h |
-| Arrival/transport guides | 6–24h |
-| Home feed | 5–15 min |
-| Place detail | 15–60 min (invalidate on pull) |
-| Conversations list | 1–5 min |
+Cache: active plan, emergency strip, Avatar cues, prefs, recent details, arrival/transport for city.  
+AI requires network. Explicit offline banner.
 
 ---
 
-## 9. Design system notes
+## 10. Design system notes
 
-- Define theme tokens (colors, spacing, typography)
-- Entity cards reusable across Home/Chat/Explore
-- Always show recommendation `reasons[]` (“why this”)
-- Always label sponsored content
-- Keep Chat readable: short paragraphs + cards + actions + follow-up chips
-- i18n: no hardcoded user-facing strings; support RTL
+- Brand + place imagery; intentional motion (Avatar, plan timeline, sheets)
+- Why-chips on suggestions/steps; sponsored labeled
+- No fear UI for safety; no purple-glow AI clichés
 
 ---
 
-## 10. Analytics hooks
+## 11. Analytics
 
-Log screen views and key actions defined in MVP doc (`05`) and NFR doc (`20`).  
-Always attach `appVersion`, `platform`, `locale`, `cityId` when known.
-
----
-
-## 11. Build flavors
-
-- `dev` / `staging` / `prod` API bases
-- Feature flags fetched or bundled for gradual rollout
-- Crash reporting enabled in staging/prod
+Events in doc `05` (plans, avatar, hard_filter_blocked, subguide_*). Attach `appVersion`, `platform`, `locale`, `cityId`.
 
 ---
 
-## 12. Related documents
+## 12. Build flavors
 
-- [20 — Non-Functional Requirements](./20-Non-Functional-Requirements.md)
-- [21 — Engineering Recommendations](./21-Engineering-Recommendations.md)
+`dev` / `staging` / `prod` · feature flags · Sentry in staging/prod
 
 ---
 

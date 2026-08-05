@@ -144,4 +144,55 @@ describe('Foundation Gate (e2e)', () => {
     const body = res.body as ErrorBody;
     expect(body.requestId).toBeDefined();
   });
+
+  it('google auth create + login (mocked verifier)', async () => {
+    const googleEmail = `google_${suffix}@test.local`;
+    const googleId = `google-sub-${suffix}`;
+    const makeMockToken = (sub: string, email: string, name: string) =>
+      `mock:${Buffer.from(
+        JSON.stringify({
+          sub,
+          email,
+          name,
+          email_verified: true,
+        }),
+      ).toString('base64url')}`;
+
+    const created = await request(app.getHttpServer())
+      .post('/v1/auth/google')
+      .send({
+        idToken: makeMockToken(googleId, googleEmail, 'Google Traveler'),
+        locale: 'fr',
+      })
+      .expect(201);
+    const createdBody = created.body as AuthTokens;
+    expect(createdBody.accessToken).toBeDefined();
+    expect(createdBody.user.role).toBe('CLIENT');
+    expect(createdBody.user.email).toBe(googleEmail);
+
+    const again = await request(app.getHttpServer())
+      .post('/v1/auth/google')
+      .send({
+        idToken: makeMockToken(googleId, googleEmail, 'Google Traveler'),
+      })
+      .expect(201);
+    const againBody = again.body as AuthTokens;
+    expect(againBody.accessToken).toBeDefined();
+    expect(againBody.user.email).toBe(googleEmail);
+
+    const me = await request(app.getHttpServer())
+      .get('/v1/auth/me')
+      .set('Authorization', `Bearer ${againBody.accessToken}`)
+      .expect(200);
+    expect((me.body as MeBody).email).toBe(googleEmail);
+
+    await prisma.user.deleteMany({ where: { email: googleEmail } });
+  });
+
+  it('google auth rejects invalid mock token', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/auth/google')
+      .send({ idToken: 'mock:not-valid-base64!!!' })
+      .expect(401);
+  });
 });

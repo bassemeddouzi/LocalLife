@@ -38,6 +38,7 @@
 ### Auth
 - `POST /v1/auth/register`
 - `POST /v1/auth/login`
+- `POST /v1/auth/google` (CLIENT — Google ID token → JWT)
 - `POST /v1/auth/refresh`
 - `POST /v1/auth/logout`
 - `POST /v1/auth/forgot-password` (recommended)
@@ -52,16 +53,43 @@
 ### Geography
 - `GET /v1/countries`
 - `GET /v1/countries/:id/cities`
+- `GET /v1/countries/:id/regions` (State pickers — Prisma `Region`)
 - `GET /v1/cities/:id`
+- `GET /v1/cities/:id/districts`
+- `GET /v1/cities/:id/zone` (auth — city service polygon/center; Admin Map / legacy)
+- `GET /v1/districts/:id/hoods`
 - `GET /v1/cities/:id/categories`
+- `GET /v1/categories`
 
 ### Places
 - `GET /v1/places?cityId=&categoryId=&lat=&lng=&radiusMeters=&q=`
 - `GET /v1/places/:id`
 - `GET /v1/places/:id/reviews`
-- `POST /v1/places` (guide/admin)
+- `POST /v1/places` (guide/admin — Guide lat/lng must be inside assignment circle)
 - `PATCH /v1/places/:id` (owner/admin)
 - `POST /v1/places/:id/photos`
+
+### Guides
+- `GET /v1/guides/me` / `PATCH /v1/guides/me` (bio, languages, displayName; **assignment is Admin-only**)
+- `GET /v1/guides/me/zone` — `{ level, name, center, radiusMeters, circleGeoJson, pins[] }` green scope for Map
+- `GET /v1/guides/me/submissions`
+- `GET|POST /v1/guides/me/subguides` — Main Guide proposes SubGuide + `borderGeoJson` → `PENDING_ADMIN`
+- `POST /v1/guides/tips` · `POST /v1/guides/events` · `POST /v1/guides/experiences`
+- `POST /v1/guides/business-applications` (coords in scope when provided)
+- Tip `categoryKey` set: `transport`, `safety`, `money`, `sunset`, `repair`, `camping`, `local_tip`
+- Event optional `prerequisites`
+- Assignment levels: `HOOD` | `DISTRICT` | `CITY` | `STATE` | `COUNTRY`
+
+### Client companion (Vision 2.0)
+- `GET /v1/me/plan-packs` · `GET|POST /v1/me/plans` · `PATCH /v1/me/plans/:id` · `POST .../activate` · `DELETE ...`
+- `GET /v1/me/notifications` · `PATCH .../read` · `GET /v1/me/avatar-cues` · `POST /v1/me/avatar-cues/read`
+- Preferences: persona, budget, conservatism, walksOk, vehicle, vibe, setting, groupSize, hardFilters, onboardingCompleted
+
+### Admin (Vision 2.0 SubGuide)
+- `GET /v1/admin/subguide-applications` · `POST .../:id/approve|reject` (formation/entretien gate)
+
+### Media
+- `POST /v1/media/presign` (R2; 503 when unset — clients fall back to URL paste)
 
 ### Events & experiences
 - `GET /v1/events`
@@ -100,6 +128,8 @@
 - `POST /v1/admin/content/:type/:id/approve`
 - `POST /v1/admin/content/:type/:id/reject`
 - `GET /v1/admin/analytics/overview`
+- `POST /v1/admin/guides` / `PATCH /v1/admin/guides/:id` — `assignmentLevel` + cascading `countryId` / `regionId` / `baseCityId` / `primaryDistrictId` / `hoodId`
+- `GET /v1/admin/guides/:id` — detail + historic
 
 ### Future
 - booking, payments, subscriptions, sponsorships under `/v1/...` behind feature flags

@@ -1,11 +1,11 @@
 # 08 — Database Full Schema
 
 **Document type:** Data architecture  
-**Version:** 1.1  
+**Version:** 2.0 (Vision 2.0 Local Companion)  
 **Language:** English  
 **Database:** PostgreSQL  
 **ORM target:** Prisma  
-**Design goals:** MVP usable now; Tunisia/international/booking/agent-ready without redesign; NFR + recommendation history ready
+**Design goals:** Companion MVP (plans, SubGuide, zone safety, Avatar, rich places) usable now; Tunisia/international/booking/agent-ready without redesign
 
 ---
 
@@ -51,13 +51,16 @@ Country, Region, City, District, Neighborhood, GeoBoundary (optional)
 Category, Tag, Place, PlaceCategory, PlaceTag, PlacePhoto, PlaceHour, PlaceAttribute, PlaceTranslation
 
 ### People & orgs
-GuideProfile, BusinessProfile, BusinessPlaceClaim, BusinessApplication
+GuideProfile (Main + SubGuide via `parentGuideId` / `borderGeoJson`), SubGuideApplication, BusinessProfile, BusinessPlaceClaim, BusinessApplication
 
 ### Social proof
 Review, ReviewPhoto, Favorite, Report
 
 ### Local knowledge
-TransportMode (enum), TransportSystem, TransportHub, TransportRoute, PaymentMethod (enum), LocalRule, HowToGuide, ArrivalGuide, GuideStep
+TransportMode (enum), TransportSystem, TransportHub, TransportRoute, TransportScenario, PaymentMethod (enum), LocalRule, HowToGuide, ArrivalGuide, GuideStep, ZoneSafetyAssessment
+
+### Companion (Vision 2.0)
+ClientPlan, ClientPlanStep, PlanPack, AvatarCue, Notification
 
 ### Events & experiences
 Event, Experience, ExperienceStep
@@ -114,6 +117,20 @@ PaymentStatus: PENDING | AUTHORIZED | CAPTURED | FAILED | REFUNDED
 SubscriptionStatus: ACTIVE | PAST_DUE | CANCELLED | EXPIRED
 
 MessageRole: USER | ASSISTANT | SYSTEM | TOOL
+
+ConservatismLevel: OPEN | MODERATE | CONSERVATIVE | STRICT
+ClientVibe: ADVENTURE | CLASSY | CALM
+PlaceSettingPref: COUNTRYSIDE | CITY | MIDDLE
+GroupSizePref: SOLO | COUPLE | FRIENDS | FAMILY_KIDS
+EffortLevel: EASY | MODERATE | HARD
+AccessDifficulty: EASY | MEDIUM | HARD
+ZoneCharacter: INDUSTRIAL | TOURIST | RESIDENTIAL | MIXED
+SafetyLevel: VERY_DANGER | DANGER | MEDIUM | GOOD | VERY_GOOD
+TimeContext: DAY | NIGHT | WEEKEND | ANY
+AudienceTag: COUPLE | FAMILY_CONSERVATIVE | FRIENDS | SOLO | BOYS | GIRLS | KIDS | ADULT_NIGHTLIFE | WORKERS | STUDENTS | ALL
+SubGuideApplicationStatus: DRAFT | PENDING_ADMIN | APPROVED | REJECTED | WITHDRAWN
+ClientPlanStatus: DRAFT | ACTIVE | COMPLETED | ARCHIVED
+ClientPlanSource: CHAT | PACK | MANUAL
 ```
 
 ---
@@ -148,6 +165,13 @@ MessageRole: USER | ASSISTANT | SYSTEM | TOOL
 | homeCityId | uuid nullable | |
 | dietaryNotes | text nullable | |
 | accessibilityNotes | text nullable | |
+| conservatismLevel | ConservatismLevel | default MODERATE |
+| walksOk | boolean | default true |
+| hasVehicle | boolean | default false |
+| vibe | ClientVibe nullable | |
+| settingPref | PlaceSettingPref nullable | |
+| groupSize | GroupSizePref | default SOLO |
+| hardFiltersJson | jsonb nullable | **hard rules** (e.g. block ADULT_NIGHTLIFE) |
 | interests | via UserInterest | |
 | notifyRecommendations | boolean | |
 | notifyEvents | boolean | |
@@ -158,6 +182,7 @@ MessageRole: USER | ASSISTANT | SYSTEM | TOOL
 | consentPush | boolean | |
 | consentMarketing | boolean | |
 | consentUpdatedAt | timestamptz nullable | |
+| updatedAt | timestamptz | |
 
 ### 5.3 UserInterest
 
@@ -286,6 +311,23 @@ id, key, name, tagType (INTEREST/AUDIENCE/AMENITY/CUISINE/...)
 | ownedByBusinessId | uuid nullable | |
 | publishedAt | timestamptz nullable | |
 | metadata | jsonb | flexible attrs |
+| audienceTags | AudienceTag[] | preference match |
+| typicalDurationMin | int nullable | |
+| effortLevel | EffortLevel nullable | |
+| budgetBand | BudgetBand nullable | |
+| ambienceTags | text[] | |
+| guideComment | text nullable | Guide narrative (no Guide star scores) |
+| lastReviewedAt | timestamptz nullable | freshness |
+| freshnessScore | decimal nullable | AI down-rank when stale |
+| accessDifficulty | AccessDifficulty nullable | special places |
+| paidEntry | boolean nullable | |
+| prerequisitesText | text nullable | |
+| precautionsText | text nullable | |
+| checklistJson | jsonb nullable | special-place checklist |
+| bestArriveText / bestLeaveText | text nullable | |
+| seasonNote | text nullable | |
+| facebookUrl / instagramUrl | text nullable | |
+| ticketUrl / ticketHowTo / ticketPriceText | text nullable | |
 | createdAt, updatedAt, deletedAt | | |
 
 ### 8.2 PlaceHour
@@ -317,15 +359,35 @@ placeId, locale, name, summary, description — unique(placeId, locale)
 | id | uuid | |
 | userId | uuid unique | |
 | bio | text nullable | |
-| languages | text[] | |
+| languages | text[] | author language(s); content translation later |
 | status | GuideApplicationStatus | APPLIED… |
 | portfolioUrl | text nullable | |
 | trustScore | decimal nullable | |
-| baseCityId | uuid nullable | FK City — where the Guide operates |
-| primaryDistrictId | uuid nullable | FK District — zone inside city (Admin map pin = district centroid) |
+| assignmentLevel | enum | COUNTRY/REGION/CITY/DISTRICT/HOOD |
+| countryId / regionId / baseCityId / primaryDistrictId / hoodId | uuid nullable | hierarchical scope |
+| **parentGuideId** | uuid nullable | FK GuideProfile — null = **Main Guide**; set = **SubGuide** |
+| **borderGeoJson** | jsonb nullable | SubGuide publish boundary (inside parent scope) |
+| lastContentReviewAt | timestamptz nullable | freshness nudge |
 | createdAt, updatedAt | | |
 
-**Later:** `citiesExpertise` M2M (multi-city Guides). Admin map shows one pin per Guide from `primaryDistrict` centroid until device GPS exists.
+**Main vs SubGuide:** same `GUIDE` role. One Main Guide per assignment zone key. SubGuide may publish only inside `borderGeoJson` after Admin confirms application.
+
+### SubGuideApplication
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid | |
+| mainGuideUserId | uuid FK User | proposer |
+| email, displayName | text | invitee |
+| phone | text nullable | |
+| formationNote | text nullable | entretien notes |
+| borderGeoJson | jsonb | drawn by Main Guide |
+| status | SubGuideApplicationStatus | default DRAFT; queue = PENDING_ADMIN |
+| createdUserId | uuid nullable | set on approve |
+| adminReviewedAt / adminReviewerId / adminNote | | |
+| createdAt, updatedAt | | |
+
+Indexes: `(mainGuideUserId, status)`, `(status)`.
 
 ### BusinessProfile
 
@@ -404,6 +466,8 @@ id, transportSystemId, fromHubId, toHubId, approxDurationMin, priceMin, priceMax
 
 `TransportSystemPaymentMethod(systemId, method)`
 
+**Product note:** `PricingType` FIXED vs METERED = FIXED vs METER in UX/AI copy. Prefer `guideComment` + `lastReviewedAt` / freshness on scenarios (`TransportScenario`: from/to, stepsJson, est cost/minutes, pricingModes[]).
+
 ---
 
 ## 12. Local rules & guides
@@ -468,6 +532,87 @@ Guide proposes → Admin approve creates Business user + temp password.
 | relatedPlaceId | nullable |
 | warnings | jsonb/text |
 | isOptional | boolean |
+
+### ZoneSafetyAssessment
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid | |
+| cityId / districtId / hoodId | uuid nullable | scope |
+| timeContext | TimeContext | DAY/NIGHT/WEEKEND/ANY |
+| safetyLevel | SafetyLevel | **AI-internal**; redact from Client DTOs |
+| reason | text | |
+| guideComment | text nullable | |
+| zoneCharacter | ZoneCharacter nullable | |
+| howToArrive | text nullable | |
+| createdByUserId | uuid nullable | |
+| verificationStatus | enum | |
+| lastReviewedAt | timestamptz nullable | |
+| freshnessScore | decimal nullable | |
+| createdAt, updatedAt | | |
+
+Indexes: `(cityId, timeContext)`, `(districtId, timeContext)`.
+
+---
+
+## 12b. Companion plans & Avatar
+
+### PlanPack
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid | |
+| cityId | uuid nullable | |
+| code | text unique | e.g. arrival, student_week |
+| title, summary | text | |
+| personaHints | PersonaType[] | |
+| stepsJson | jsonb | template steps |
+| enabled | boolean | |
+| createdAt, updatedAt | | |
+
+### ClientPlan
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid | |
+| userId | uuid FK | |
+| cityId | uuid nullable | |
+| title | text | |
+| status | ClientPlanStatus | DRAFT/ACTIVE/COMPLETED/ARCHIVED |
+| source | ClientPlanSource | CHAT/PACK/MANUAL |
+| offlinePayloadJson | jsonb nullable | offline cache |
+| planPackId | uuid nullable FK | |
+| createdAt, updatedAt | | |
+
+### ClientPlanStep
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid | |
+| planId | uuid FK | cascade |
+| sortOrder | int | |
+| startsAt | timestamptz nullable | |
+| placeId / eventId | uuid nullable | |
+| freeText | text nullable | |
+| durationMin | int nullable | |
+| transportNote | text nullable | |
+| whyJson | jsonb nullable | explainability |
+| status | text | default PENDING |
+| createdAt, updatedAt | | |
+
+### AvatarCue
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid | |
+| userId | uuid FK | |
+| animationHint | text | e.g. wave, soft-warn |
+| deepLink | text nullable | chat/plan routes |
+| title | text | |
+| body | text nullable | calm copy only |
+| notificationId | uuid nullable | |
+| readAt | timestamptz nullable | |
+| createdAt | timestamptz | |
 
 ---
 
@@ -578,22 +723,28 @@ userId, score, reasons jsonb, updatedAt
 ## 17. Relationship diagram (simplified)
 
 ```text
+User ── UserPreference (hardFilters + identity)
 User ──< Conversation ──< Message ──< MessageCitation
+User ──< ClientPlan ──< ClientPlanStep
+User ──< AvatarCue / Notification
 User ──< Review >── Place
 User ──< Favorite
 User ──< AnalyticsEvent
-User ── UserPreference (consents)
 Place >── City >── Country
-Place ──< PlacePhoto / PlaceHour / PlaceAttribute
+Place ──< PlacePhoto / PlaceHour (rich checklist fields on Place)
 TransportSystem >── City/Country
 TransportHub >── Place
 ArrivalGuide >── City
 ArrivalGuide ──< GuideStep
 LocalRule >── scoped geo
+ZoneSafetyAssessment >── city/district/hood + timeContext
 Event >── City / Place
 Experience ──< ExperienceStep >── Place
+PlanPack ──< ClientPlan
 BusinessProfile ──< BusinessPlaceClaim >── Place
 GuideProfile >── User
+GuideProfile ──< GuideProfile (parentGuideId SubGuides)
+SubGuideApplication >── mainGuideUser
 Booking >── User (future)
 EntityEmbedding >── polymorphic entity
 ContentSuggestion >── polymorphic entity
@@ -621,21 +772,24 @@ ContentSuggestion >── polymorphic entity
 
 | Module | MVP writes/reads | Notes |
 | --- | --- | --- |
-| Users/prefs + consents | Active | |
+| Users/prefs + consents + hard filters | Active | Vision 2.0 identity |
 | Geography | Active (TN + Djerba) | |
-| Places/reviews/favorites | Active | |
+| Places (rich) / reviews / favorites | Active | checklist + freshness |
 | Events/experiences | Active | |
-| Transport/rules/arrival | Active (seeded) | Differentiator + lastReviewedAt |
-| AI conversations + citations | Active | |
-| Reports + AuditLog | Active | |
-| AnalyticsEvent | Active | recommendation fuel |
+| Transport/rules/arrival + FIXED/METER | Active (seeded) | + TransportScenario |
+| ZoneSafetyAssessment | Active (Guide/Admin/AI) | redacted from Client DTOs |
+| ClientPlan / PlanPack / AvatarCue | Active | companion |
+| SubGuideApplication + Guide parent/border | Active | Admin confirm |
+| AI conversations + citations | Active | plan tools |
+| Reports + AuditLog | Active | report → replan |
+| AnalyticsEvent | Active | |
 | FeatureFlag | Active | |
-| Guide/Business profiles | Partial | schema yes, portals later |
-| EntityEmbedding | Optional empty | retrieve path ready |
-| ContentSuggestion | MVP+ | corrections |
-| Booking/Payment/Subscription | Dormant UI | tables exist |
-| AiActionLog / Ask a Local | Dormant | future |
-| DeviceToken/Notifications | Optional | |
+| Guide/Business profiles | Active portals | Phase 05b/05c |
+| EntityEmbedding | Optional empty | |
+| ContentSuggestion | MVP+ | |
+| Booking/Payment/Subscription | Dormant UI | |
+| AiActionLog / Ask a Local | Dormant | social/future |
+| DeviceToken | Optional | push scale later |
 
 ---
 

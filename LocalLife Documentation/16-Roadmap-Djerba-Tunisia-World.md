@@ -1,7 +1,7 @@
 # 16 — Roadmap: Djerba → Tunisia → International
 
 **Document type:** Delivery roadmap  
-**Version:** 1.0  
+**Version:** 2.0 (Vision 2.0 Local Companion)  
 **Language:** English
 
 ---
@@ -10,149 +10,125 @@
 
 ```text
 Depth in one city → breadth in one country → repeatable country packs worldwide
-Chat grounded → planner → notifications → booking → agent
+Companion (plans + Avatar + SubGuide) → MVP+ survival → booking → social → agent
 ```
 
 Never expand geography faster than content quality and grounding quality.
 
 ---
 
-## 2. Phase 1 — MVP (Djerba)
-
-### Target
-Djerba
+## 2. Phase 1 — Foundation MVP (Djerba)
 
 ### Product
-- Authentication
-- Profiles/preferences + consents
-- AI Chat (grounded) with citations + why-this reasons
-- Places, events, experiences
-- Reviews, favorites, reports
-- GPS + nav handoff
-- Arrival guide + transport systems + key local rules
-- Analytics event pipeline
+- Auth, profiles/consents, grounded AI Chat, places/events/experiences
+- Reviews, favorites, reports, GPS + nav handoff
+- Arrival + transport + local rules seed
+- Analytics, flags, rate limits, i18n UI framework
 
 ### Engineering
-- NestJS + Prisma schema v1 (future-ready)
-- React Native app tabs with cache/pagination
-- Admin moderation basics
-- Djerba seed dataset
-- Feature flags, rate limits, request IDs
-- Crash reporting (Sentry or equivalent)
-- i18n framework (EN + FR/AR readiness)
+NestJS + Prisma · Expo client · Admin moderation · Djerba seed · Railway path
 
 ### Exit criteria
-- Real users complete core journeys
-- Grounded answer rate is high
-- Content ops process works
-- NFR checklist passes (cache, security, analytics, i18n readiness)
-- No schema rewrite needed for Phase 2
+Core journeys work; grounded answer rate high; NFR checklist passes.
 
 ---
 
-### Immediately after MVP (MVP+)
-- Emergency Mode
-- City Survival Kit
-- Scam/tourist-trap warnings
-- Chat follow-up chips
-- Locals vs Tourists tags
-- Suggest a correction
+## 3. Phase 05b — Portals MVP
 
+Admin web + Guide contribution UX + Business claim/profile (no payments).  
+Hierarchical Guide scope. Exit: portals QA gate.
+
+---
+
+## 4. Phase 05c — Local Companion (Vision 2.0)
+
+**Priority P0.** Depends on 05b + Guide scope zones.
+
+### Ships
+- Rich Trusted Guide knowledge (FIXED/METER transport, special checklists, zone safety-by-time)
+- Client identity + **hard filters**
+- Plan packs + ClientPlan timelines (offline active plan)
+- Floating **AI Avatar** + cues
+- **SubGuide**: Main Guide invite + map border → **Admin confirm**
+- Freshness down-rank + report → replan → Avatar notify
+- Client IA: For You/Plans · Search · AI Chat · Saved · Profile
+- Sensitive safety redaction; SubGuide border enforce
+
+### Waves (summary)
+Docs/design → schema → API/security → Admin confirm → Guide redesign → Client + Avatar → offline/freshness jobs → tests → env keys
+
+### Exit criteria
+- Decisions Log v2.0 reflected in schema + APIs
+- Main Guide proposes SubGuide; Admin approves
+- Client onboards, packs, chat→plan, Avatar notifications
+- Zone intel redacted from Client DTOs
+- Freshness + replan path works (mock AI if keys missing)
+
+---
+
+## 5. Immediately after companion (MVP+)
+
+Emergency Mode · Survival Kit · Scam warnings · richer chips · Locals vs Tourists polish · correction UX depth  
 See [22 — Extended Feature Backlog](./22-Extended-Feature-Backlog.md).
 
 ---
 
-## 3. Phase 2 — Tunisia
+## 6. Phase 2 — Tunisia
 
-### Expand cities
-Tunis, Sousse, Hammamet, Sfax, Tozeur, Bizerte, and remaining cities progressively.
-
-### Add
-- Local Guide portal
-- Business accounts / claims
-- Stronger recommendation quality
-- More transport systems per city
-- Country-level rules pack refinement
-
-### Exit criteria
-- Multi-city switching works with same app
-- Guides producing approved content weekly
-- Early sponsorship experiments possible
+Multi-city expand · stronger recs · more transport systems · country rules refinement · portal enhancements (Phase 10 workstream).
 
 ---
 
-## 4. Phase 3 — International
+## 7. Phase 3 — International
 
-### Focus
-- Multi-language
-- Multi-currency
-- Country-specific transport packs
-- Local regulations packs
-- Cultural adaptation of onboarding/content
-
-### Operating model
-Country pack playbook + local editors/guides.
+Multi-language/currency · country transport/regulation packs · **Guide content translation** · local editors.
 
 ---
 
-## 5. Phase 4 — Marketplace
+## 8. Phase 4 — Marketplace & booking
 
-- Booking flows
-- Experiences commerce
-- Local services
-- Payments + refunds + support process
-
-Transforms LocalLife into a local ecosystem, not only an assistant.
+Booking flows, experiences commerce, payments/refunds *(explicitly future vs companion MVP)*.
 
 ---
 
-## 6. Phase 5 — AI Agent
+## 9. Phase 5 — Proactive AI Agent
 
-Proactive companion capable of:
-
-- planning trips
-- suggesting real-time activities
-- adapting to weather/schedules
-- managing bookings with approval
-- remembering preferences
-- acting as a personal local companion
-
-Requires mature knowledge quality + action audit logs + feature flags.
+Weather/schedule adaptation, bookings with approval, durable memory — on top of mature companion knowledge + audit logs.
 
 ---
 
-## 7. Parallel workstreams (all phases)
+## 10. Parallel workstreams
 
 | Stream | Ownership |
 | --- | --- |
-| Product/UX | journeys & prioritization |
+| Product/UX | companion journeys & IA |
 | Engineering | platform & quality |
-| Content | seeding & verification |
-| AI eval | grounding scorecards |
+| Content | seeding, freshness, zone intel |
+| AI eval | grounding + hard-filter tests |
 | Business | partnerships & monetization experiments |
 
 ---
 
-## 8. Suggested milestone naming
+## 11. Suggested milestones
 
-- `M1` Schema + auth + places read APIs
-- `M2` Chat grounded on places
-- `M3` Local knowledge tools (transport/arrival/rules)
-- `M4` Reviews/favorites/polish
-- `M5` Closed beta Djerba
-- `M6` Public MVP Djerba
+- `M1`–`M4` Foundation schema/chat/local knowledge/reviews
+- `M5` Portals 05b
+- **`M5c` Local Companion 05c**
+- `M6` Closed beta Djerba (30 testers)
+- `M7` Public MVP Djerba
 
 ---
 
-## 9. Risk register (short)
+## 12. Risk register (short)
 
 | Risk | Mitigation |
 | --- | --- |
-| Thin content | seed deeply before marketing |
-| Hallucinations | grounding guard + citations |
-| Overbuilding commerce early | feature flags; schema only |
-| City expansion too fast | pack quality checklist gate |
-| Transport data goes stale | review dates + guide updates |
+| Thin / stale content | deep seed + freshness jobs + Guide nudges |
+| Hallucinations | grounding + citations |
+| Safety scare UI | redact enums; derived advice only |
+| SubGuide scope leak | server-side border enforce |
+| Overbuilding commerce early | booking/social/turn-by-turn stay future |
+| City expansion too fast | pack quality gate |
 
 ---
 

@@ -102,6 +102,7 @@ Prepare tools (Expo monorepo + Railway + OpenRouter + Mapbox)
 | F3 | Guide contribution UX | 05b | Guide can submit content |
 | F4 | Business claim/profile UX | 05b | Business basics (no payments) |
 | F5 | Portals QA Gate | 05b | MVP portals signed |
+| F6 | **Local Companion** (plans, Avatar, SubGuide, rich knowledge, hard filters) | **05c** | Companion Gate (Vision 2.0) |
 
 ---
 
@@ -151,6 +152,7 @@ Prepare tools (Expo monorepo + Railway + OpenRouter + Mapbox)
 | AI golden / grounding | Phase 04 | Phase 07 |
 | Mobile manual QA | Phase 05 | Phase 06 |
 | Admin/Guide/Business QA | Phase 05b | Phase 06 |
+| Local Companion QA (plans/Avatar/SubGuide) | Phase 05c | Phase 06 |
 | Railway staging smoke | Phase 06 | Phase 07 |
 | Beta UAT (30) | Phase 07 | Phase 08 |
 | Prod smoke | Phase 08 | public announce |
@@ -165,7 +167,8 @@ Schema/Auth/Admin skeleton tests
   → Local knowledge + seed (fake OK)
   → OpenRouter grounded AI (+ admin model config)
   → Expo mobile MVP
-  → Admin/Guide/Business MVP UX
+  → Admin/Guide/Business MVP UX (05b)
+  → Local Companion Vision 2.0 (05c)
   → Railway staging
   → 30-tester beta
   → Railway prod MVP

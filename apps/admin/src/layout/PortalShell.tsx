@@ -110,6 +110,8 @@ export function AdminShell() {
         { to: '/admin/map', label: 'Map' },
         { to: '/admin/moderation', label: 'Moderation' },
         { to: '/admin/users', label: 'Users' },
+        { to: '/admin/subguides', label: 'SubGuides' },
+        { to: '/admin/freshness', label: 'Freshness' },
         { to: '/admin/ai-config', label: 'AI config' },
         { to: '/admin/flags', label: 'Feature flags' },
         { to: '/admin/seed', label: 'Seed tools' },

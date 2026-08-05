@@ -1,0 +1,13 @@
+{
+  "pack": "djerba-real-v1",
+  "districts": [
+    { "slug": "houmt-souk", "name": "Houmt Souk", "latitude": 33.8758, "longitude": 10.857 },
+    { "slug": "midoun", "name": "Midoun", "latitude": 33.808, "longitude": 10.995 },
+    { "slug": "ajim", "name": "Ajim", "latitude": 33.722, "longitude": 10.75 },
+    { "slug": "erriadh", "name": "Erriadh / Hara Seghira", "latitude": 33.814, "longitude": 10.856 },
+    { "slug": "aghir", "name": "Aghir", "latitude": 33.75, "longitude": 11.02 },
+    { "slug": "mellita", "name": "Mellita (Airport)", "latitude": 33.875, "longitude": 10.775 },
+    { "slug": "guellala", "name": "Guellala", "latitude": 33.73, "longitude": 10.87 },
+    { "slug": "sedriane", "name": "Sedriane / Zone touristique", "latitude": 33.84, "longitude": 11.01 }
+  ]
+}

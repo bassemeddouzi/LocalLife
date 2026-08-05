@@ -20,7 +20,13 @@ export class OpenRouterClient {
     modelId: string;
     messages: ChatMessage[];
     temperature?: number;
-  }): Promise<{ content: string; model: string; latencyMs: number }> {
+    maxTokens?: number;
+  }): Promise<{
+    content: string;
+    model: string;
+    latencyMs: number;
+    usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+  }> {
     const apiKey = this.config.get<string>('OPENROUTER_API_KEY')?.trim();
     if (!apiKey) {
       throw new Error('OPENROUTER_API_KEY not configured');
@@ -38,6 +44,7 @@ export class OpenRouterClient {
       body: JSON.stringify({
         model: input.modelId,
         temperature: input.temperature ?? 0.2,
+        max_tokens: input.maxTokens,
         messages: input.messages,
       }),
     });
@@ -51,6 +58,11 @@ export class OpenRouterClient {
 
     const json = (await res.json()) as {
       model?: string;
+      usage?: {
+        prompt_tokens?: number;
+        completion_tokens?: number;
+        total_tokens?: number;
+      };
       choices?: Array<{ message?: { content?: string } }>;
     };
     const content = json.choices?.[0]?.message?.content?.trim() ?? '';
@@ -58,6 +70,13 @@ export class OpenRouterClient {
       content,
       model: json.model ?? input.modelId,
       latencyMs,
+      usage: json.usage
+        ? {
+            promptTokens: json.usage.prompt_tokens ?? 0,
+            completionTokens: json.usage.completion_tokens ?? 0,
+            totalTokens: json.usage.total_tokens ?? 0,
+          }
+        : undefined,
     };
   }
 }

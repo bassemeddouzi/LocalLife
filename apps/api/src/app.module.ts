@@ -13,6 +13,9 @@ import { GuidesModule } from './guides/guides.module';
 import { BusinessModule } from './business/business.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
 import { AiModule } from './ai/ai.module';
+import { MediaModule } from './media/media.module';
+import { CompanionModule } from './companion/companion.module';
+import { WeatherModule } from './weather/weather.module';
 import { CacheModule } from './shared/cache.module';
 import { RequestIdMiddleware } from './shared/request-id.middleware';
 
@@ -36,6 +39,9 @@ import { RequestIdMiddleware } from './shared/request-id.middleware';
     BusinessModule,
     KnowledgeModule,
     AiModule,
+    MediaModule,
+    CompanionModule,
+    WeatherModule,
   ],
   controllers: [HealthController],
   providers: [

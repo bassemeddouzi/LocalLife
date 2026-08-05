@@ -1,0 +1,75 @@
+{
+  "pack": "djerba-real-v1",
+  "rules": [
+    {
+      "category": "MONEY",
+      "severity": "IMPORTANT",
+      "title": "Cash is still king",
+      "summary": "Many taxis, louages, and small cafés prefer or require cash (TND). Keep small notes.",
+      "details": "ATMs are common in Houmt Souk and Midoun. Airport ATMs may have queues and fees."
+    },
+    {
+      "category": "TRANSPORT",
+      "severity": "IMPORTANT",
+      "title": "Agree taxi fare before leaving",
+      "summary": "Especially from the airport and at night — confirm price before boarding.",
+      "details": "Official ranks are safer than random offers. Louage (shared taxi) uses fixed-ish per-seat prices on known routes."
+    },
+    {
+      "category": "DRESS_CULTURE",
+      "severity": "INFO",
+      "title": "Modest dress in towns and religious sites",
+      "summary": "Beachwear is for beaches/hotels. Cover shoulders/knees in medina and at El Ghriba.",
+      "details": null
+    },
+    {
+      "category": "SAFETY",
+      "severity": "IMPORTANT",
+      "title": "Night travel — stick to lit tourist corridors",
+      "summary": "Prefer hotel taxis at night; avoid empty industrial stretches if alone.",
+      "details": "Ask your hotel for trusted drivers. Share location with someone if traveling late."
+    },
+    {
+      "category": "HEALTH",
+      "severity": "INFO",
+      "title": "Pharmacie de garde (night pharmacy)",
+      "summary": "Night pharmacy rota rotates — ask hotel reception or police for tonight’s location.",
+      "details": null
+    },
+    {
+      "category": "INTERNET_COMMS",
+      "severity": "INFO",
+      "title": "Airport SIM desks",
+      "summary": "Buy a local SIM after landing if you need data for maps and taxis.",
+      "details": "Bring passport for registration. Compare Tunisie Telecom / Ooredoo / Orange offers."
+    },
+    {
+      "category": "SCAM_WARNING",
+      "severity": "IMPORTANT",
+      "title": "Unsolicited “helpers” at airport",
+      "summary": "Politely decline random luggage helpers and unofficial taxi offers; use the marked rank.",
+      "details": null
+    },
+    {
+      "category": "PHOTOGRAPHY",
+      "severity": "INFO",
+      "title": "Ask before photographing people",
+      "summary": "Especially in markets and villages — a smile and ask goes far.",
+      "details": null
+    },
+    {
+      "category": "EMERGENCY",
+      "severity": "CRITICAL",
+      "title": "Emergency numbers (Tunisia)",
+      "summary": "Police 197 · Ambulance 190 · Fire 198",
+      "details": "Save these offline. Hotel reception can also call a trusted clinic."
+    },
+    {
+      "category": "ALCOHOL",
+      "severity": "INFO",
+      "title": "Alcohol availability varies",
+      "summary": "Hotel bars and some restaurants serve alcohol; many local cafés do not.",
+      "details": null
+    }
+  ]
+}

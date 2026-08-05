@@ -9,7 +9,8 @@ import * as argon2 from 'argon2';
 import { createHash, randomBytes } from 'crypto';
 import { UserRole, UserStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { LoginDto, RegisterDto } from './dto/auth.dto';
+import { GoogleAuthDto, LoginDto, RegisterDto } from './dto/auth.dto';
+import { GoogleTokenVerifier } from './google-token.verifier';
 
 @Injectable()
 export class AuthService {
@@ -17,6 +18,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly googleVerifier: GoogleTokenVerifier,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -69,6 +71,104 @@ export class AuthService {
       user.email,
       user.role,
       user.displayName,
+      meta,
+    );
+  }
+
+  async googleSignIn(
+    dto: GoogleAuthDto,
+    meta?: { userAgent?: string; ip?: string },
+  ) {
+    const identity = await this.googleVerifier.verify(dto.idToken);
+
+    const byGoogle = await this.prisma.user.findUnique({
+      where: { googleId: identity.googleId },
+    });
+    if (byGoogle) {
+      if (byGoogle.deletedAt || byGoogle.status !== UserStatus.ACTIVE) {
+        throw new UnauthorizedException('Account suspended');
+      }
+      if (byGoogle.role !== UserRole.CLIENT) {
+        throw new UnauthorizedException(
+          'Google Sign-In is only available for traveler accounts',
+        );
+      }
+      await this.prisma.user.update({
+        where: { id: byGoogle.id },
+        data: {
+          lastLoginAt: new Date(),
+          ...(identity.avatarUrl && !byGoogle.avatarUrl
+            ? { avatarUrl: identity.avatarUrl }
+            : {}),
+          ...(dto.locale ? { locale: dto.locale } : {}),
+          isEmailVerified: identity.emailVerified || byGoogle.isEmailVerified,
+        },
+      });
+      return this.issueTokens(
+        byGoogle.id,
+        byGoogle.email,
+        byGoogle.role,
+        byGoogle.displayName,
+        meta,
+      );
+    }
+
+    const byEmail = await this.prisma.user.findUnique({
+      where: { email: identity.email },
+    });
+    if (byEmail) {
+      if (byEmail.deletedAt || byEmail.status !== UserStatus.ACTIVE) {
+        throw new UnauthorizedException('Account suspended');
+      }
+      if (byEmail.role !== UserRole.CLIENT) {
+        throw new UnauthorizedException(
+          'Google Sign-In is only available for traveler accounts',
+        );
+      }
+      if (byEmail.googleId && byEmail.googleId !== identity.googleId) {
+        throw new ConflictException('Email is linked to another Google account');
+      }
+      const linked = await this.prisma.user.update({
+        where: { id: byEmail.id },
+        data: {
+          googleId: identity.googleId,
+          lastLoginAt: new Date(),
+          isEmailVerified: identity.emailVerified || byEmail.isEmailVerified,
+          ...(identity.avatarUrl && !byEmail.avatarUrl
+            ? { avatarUrl: identity.avatarUrl }
+            : {}),
+          ...(dto.locale ? { locale: dto.locale } : {}),
+        },
+      });
+      return this.issueTokens(
+        linked.id,
+        linked.email,
+        linked.role,
+        linked.displayName,
+        meta,
+      );
+    }
+
+    const created = await this.prisma.user.create({
+      data: {
+        email: identity.email,
+        googleId: identity.googleId,
+        passwordHash: null,
+        displayName: identity.displayName,
+        avatarUrl: identity.avatarUrl,
+        locale: dto.locale ?? 'en',
+        role: UserRole.CLIENT,
+        isEmailVerified: identity.emailVerified,
+        lastLoginAt: new Date(),
+        preference: { create: {} },
+      },
+    });
+
+    return this.issueTokens(
+      created.id,
+      created.email,
+      created.role,
+      created.displayName,
       meta,
     );
   }
@@ -129,6 +229,7 @@ export class AuthService {
       displayName: user.displayName,
       locale: user.locale,
       personaType: user.personaType,
+      onboardingCompletedAt: user.onboardingCompletedAt,
       preference: user.preference,
     };
   }
@@ -140,18 +241,29 @@ export class AuthService {
       budgetBand?: import('@prisma/client').BudgetBand;
       locale?: string;
       homeCityId?: string;
+      conservatismLevel?: import('@prisma/client').ConservatismLevel;
+      walksOk?: boolean;
+      hasVehicle?: boolean;
+      vibe?: import('@prisma/client').ClientVibe;
+      settingPref?: import('@prisma/client').PlaceSettingPref;
+      groupSize?: import('@prisma/client').GroupSizePref;
+      hardFiltersJson?: Record<string, unknown>;
+      onboardingCompleted?: boolean;
       consentAnalytics?: boolean;
       consentPersonalization?: boolean;
       consentPush?: boolean;
       consentMarketing?: boolean;
     },
   ) {
-    if (dto.personaType || dto.locale) {
+    if (dto.personaType || dto.locale || dto.onboardingCompleted) {
       await this.prisma.user.update({
         where: { id: userId },
         data: {
           ...(dto.personaType ? { personaType: dto.personaType } : {}),
           ...(dto.locale ? { locale: dto.locale } : {}),
+          ...(dto.onboardingCompleted
+            ? { onboardingCompletedAt: new Date() }
+            : {}),
         },
       });
     }
@@ -162,6 +274,13 @@ export class AuthService {
         userId,
         budgetBand: dto.budgetBand ?? 'MEDIUM',
         homeCityId: dto.homeCityId,
+        conservatismLevel: dto.conservatismLevel ?? 'MODERATE',
+        walksOk: dto.walksOk ?? true,
+        hasVehicle: dto.hasVehicle ?? false,
+        vibe: dto.vibe,
+        settingPref: dto.settingPref,
+        groupSize: dto.groupSize ?? 'SOLO',
+        hardFiltersJson: (dto.hardFiltersJson as object | undefined) ?? undefined,
         consentAnalytics: dto.consentAnalytics ?? false,
         consentPersonalization: dto.consentPersonalization ?? false,
         consentPush: dto.consentPush ?? false,
@@ -171,6 +290,19 @@ export class AuthService {
       update: {
         ...(dto.budgetBand ? { budgetBand: dto.budgetBand } : {}),
         ...(dto.homeCityId !== undefined ? { homeCityId: dto.homeCityId } : {}),
+        ...(dto.conservatismLevel
+          ? { conservatismLevel: dto.conservatismLevel }
+          : {}),
+        ...(dto.walksOk !== undefined ? { walksOk: dto.walksOk } : {}),
+        ...(dto.hasVehicle !== undefined ? { hasVehicle: dto.hasVehicle } : {}),
+        ...(dto.vibe !== undefined ? { vibe: dto.vibe } : {}),
+        ...(dto.settingPref !== undefined
+          ? { settingPref: dto.settingPref }
+          : {}),
+        ...(dto.groupSize ? { groupSize: dto.groupSize } : {}),
+        ...(dto.hardFiltersJson !== undefined
+          ? { hardFiltersJson: dto.hardFiltersJson as object }
+          : {}),
         ...(dto.consentAnalytics !== undefined
           ? { consentAnalytics: dto.consentAnalytics }
           : {}),

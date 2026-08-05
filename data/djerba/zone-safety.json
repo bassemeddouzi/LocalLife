@@ -1,0 +1,53 @@
+{
+  "pack": "djerba-real-v1",
+  "zoneSafety": [
+    {
+      "districtSlug": "houmt-souk",
+      "timeContext": "DAY",
+      "safetyLevel": "VERY_GOOD",
+      "reason": "Busy medina and shops; normal pickpocket awareness.",
+      "zoneCharacter": "MIXED",
+      "guideComment": "Great for walking markets by day."
+    },
+    {
+      "districtSlug": "houmt-souk",
+      "timeContext": "NIGHT",
+      "safetyLevel": "GOOD",
+      "reason": "Centre stays active; quieter side streets less lit.",
+      "zoneCharacter": "MIXED",
+      "guideComment": "Use known routes back to hotel; taxi if unsure."
+    },
+    {
+      "districtSlug": "midoun",
+      "timeContext": "DAY",
+      "safetyLevel": "VERY_GOOD",
+      "reason": "Tourist services and hotels nearby.",
+      "zoneCharacter": "TOURIST",
+      "guideComment": "Easy base for beaches and Explore Park."
+    },
+    {
+      "districtSlug": "midoun",
+      "timeContext": "NIGHT",
+      "safetyLevel": "GOOD",
+      "reason": "Hotel zones fine; empty roads between towns darker.",
+      "zoneCharacter": "TOURIST",
+      "guideComment": "Prefer hotel taxi for late returns."
+    },
+    {
+      "districtSlug": "mellita",
+      "timeContext": "NIGHT",
+      "safetyLevel": "MEDIUM",
+      "reason": "Airport area is fine inside terminal; outside depends on transfer.",
+      "zoneCharacter": "MIXED",
+      "guideComment": "Pre-book transfer for late arrivals."
+    },
+    {
+      "districtSlug": "ajim",
+      "timeContext": "DAY",
+      "safetyLevel": "GOOD",
+      "reason": "Ferry queues and local traffic — normal caution.",
+      "zoneCharacter": "MIXED",
+      "guideComment": "Watch vehicles when boarding ferry."
+    }
+  ]
+}

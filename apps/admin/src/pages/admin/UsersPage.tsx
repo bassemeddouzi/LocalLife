@@ -15,10 +15,17 @@ type UserRow = {
     id: string;
     status: string;
     languages?: string[];
+    assignmentLevel?: string | null;
+    countryId?: string | null;
+    regionId?: string | null;
     baseCityId?: string | null;
     primaryDistrictId?: string | null;
+    hoodId?: string | null;
     baseCity?: { id: string; name: string; slug: string } | null;
     primaryDistrict?: { id: string; name: string; slug: string } | null;
+    hood?: { id: string; name: string; slug: string } | null;
+    region?: { id: string; name: string } | null;
+    country?: { id: string; name: string; iso2?: string } | null;
   } | null;
   businessProfile?: {
     id: string;
@@ -40,11 +47,30 @@ type District = {
   slug: string;
 };
 
+type Hood = {
+  id: string;
+  districtId: string;
+  name: string;
+  slug: string;
+};
+
 type CityOption = {
   id: string;
   name: string;
   slug: string;
 };
+
+type RegionOption = { id: string; name: string; countryId: string };
+type CountryOption = { id: string; name: string; iso2: string };
+
+const ASSIGNMENT_LEVELS = [
+  'HOOD',
+  'DISTRICT',
+  'CITY',
+  'STATE',
+  'COUNTRY',
+] as const;
+type AssignmentLevel = (typeof ASSIGNMENT_LEVELS)[number];
 
 type GuideDetail = {
   user: UserRow;
@@ -137,11 +163,20 @@ export function UsersPage() {
 
   const [guideEmail, setGuideEmail] = useState('');
   const [guideName, setGuideName] = useState('');
+  const [guideLevel, setGuideLevel] = useState<AssignmentLevel>('DISTRICT');
+  const [guideCountryId, setGuideCountryId] = useState('');
+  const [guideRegionId, setGuideRegionId] = useState('');
   const [guideCityId, setGuideCityId] = useState('');
   const [guideDistrictId, setGuideDistrictId] = useState('');
+  const [guideHoodId, setGuideHoodId] = useState('');
+  const [countries, setCountries] = useState<CountryOption[]>([]);
+  const [regions, setRegions] = useState<RegionOption[]>([]);
   const [cities, setCities] = useState<CityOption[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
+  const [hoods, setHoods] = useState<Hood[]>([]);
+  const [editLevel, setEditLevel] = useState<AssignmentLevel>('DISTRICT');
   const [editDistrictId, setEditDistrictId] = useState('');
+  const [editHoodId, setEditHoodId] = useState('');
   const [bizEmail, setBizEmail] = useState('');
   const [bizName, setBizName] = useState('');
   const [bizCityId, setBizCityId] = useState('');
@@ -153,26 +188,57 @@ export function UsersPage() {
   useEffect(() => {
     void (async () => {
       try {
-        const countries = await api<Array<{ id: string; iso2: string }>>(
-          '/v1/countries',
-          { auth: false },
-        );
-        const tn = countries.find((c) => c.iso2 === 'TN');
-        if (!tn) return;
-        const list = await api<CityOption[]>(`/v1/countries/${tn.id}/cities`, {
+        const list = await api<CountryOption[]>('/v1/countries', {
           auth: false,
         });
-        setCities(list);
-        const djerba = list.find((c) => c.slug === 'djerba');
+        setCountries(list);
+        const tn = list.find((c) => c.iso2 === 'TN');
+        if (!tn) return;
+        setGuideCountryId(tn.id);
+        const cityList = await api<CityOption[]>(
+          `/v1/countries/${tn.id}/cities`,
+          { auth: false },
+        );
+        setCities(cityList);
+        const djerba = cityList.find((c) => c.slug === 'djerba');
         if (djerba) {
           setGuideCityId(djerba.id);
           setBizCityId(djerba.id);
+        }
+        try {
+          const regs = await api<RegionOption[]>(
+            `/v1/countries/${tn.id}/regions`,
+            { auth: false },
+          );
+          setRegions(regs);
+          if (regs[0]) setGuideRegionId(regs[0].id);
+        } catch {
+          /* regions optional if endpoint missing on older API */
         }
       } catch (e) {
         setMsg(e instanceof Error ? e.message : String(e));
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!guideCountryId) return;
+    void api<RegionOption[]>(`/v1/countries/${guideCountryId}/regions`, {
+      auth: false,
+    })
+      .then((rows) => {
+        setRegions(rows);
+        setGuideRegionId((prev) =>
+          rows.some((r) => r.id === prev) ? prev : (rows[0]?.id ?? ''),
+        );
+      })
+      .catch(() => setRegions([]));
+    void api<CityOption[]>(`/v1/countries/${guideCountryId}/cities`, {
+      auth: false,
+    })
+      .then(setCities)
+      .catch(() => undefined);
+  }, [guideCountryId]);
 
   useEffect(() => {
     const cityId = tab === 'BUSINESS' ? bizCityId : guideCityId;
@@ -197,6 +263,28 @@ export function UsersPage() {
       })
       .catch((e) => setMsg(e instanceof Error ? e.message : String(e)));
   }, [guideCityId, bizCityId, tab]);
+
+  useEffect(() => {
+    const districtId =
+      editLevel === 'HOOD' && editDistrictId
+        ? editDistrictId
+        : guideDistrictId;
+    if (!districtId || (guideLevel !== 'HOOD' && editLevel !== 'HOOD')) {
+      setHoods([]);
+      return;
+    }
+    void api<Hood[]>(`/v1/districts/${districtId}/hoods`, { auth: false })
+      .then((rows) => {
+        setHoods(rows);
+        setGuideHoodId((prev) =>
+          rows.some((h) => h.id === prev) ? prev : (rows[0]?.id ?? ''),
+        );
+        setEditHoodId((prev) =>
+          rows.some((h) => h.id === prev) ? prev : (rows[0]?.id ?? ''),
+        );
+      })
+      .catch(() => setHoods([]));
+  }, [guideDistrictId, editDistrictId, guideLevel, editLevel]);
 
   useEffect(() => {
     if (
@@ -255,17 +343,29 @@ export function UsersPage() {
   async function addGuide(e: FormEvent) {
     e.preventDefault();
     try {
+      const body: Record<string, string | string[]> = {
+        email: guideEmail,
+        displayName: guideName,
+        languages: ['en', 'fr', 'ar'],
+        assignmentLevel: guideLevel,
+      };
+      if (guideLevel === 'COUNTRY') body.countryId = guideCountryId;
+      if (guideLevel === 'STATE') body.regionId = guideRegionId;
+      if (guideLevel === 'CITY') body.baseCityId = guideCityId;
+      if (guideLevel === 'DISTRICT') {
+        body.baseCityId = guideCityId;
+        body.primaryDistrictId = guideDistrictId;
+      }
+      if (guideLevel === 'HOOD') {
+        body.baseCityId = guideCityId;
+        body.primaryDistrictId = guideDistrictId;
+        body.hoodId = guideHoodId;
+      }
       const res = await api<{ user: UserRow; temporaryPassword: string }>(
         '/v1/admin/guides',
         {
           method: 'POST',
-          body: JSON.stringify({
-            email: guideEmail,
-            displayName: guideName,
-            languages: ['en', 'fr', 'ar'],
-            baseCityId: guideCityId,
-            primaryDistrictId: guideDistrictId,
-          }),
+          body: JSON.stringify(body),
         },
       );
       setTempPassword(res.temporaryPassword);
@@ -308,9 +408,19 @@ export function UsersPage() {
       const detail = await api<GuideDetail>(`/v1/admin/guides/${id}`);
       setDetailGuide(detail);
       setDetailBiz(null);
+      const level = (detail.user.guideProfile?.assignmentLevel ??
+        'DISTRICT') as AssignmentLevel;
+      setEditLevel(level);
       setEditDistrictId(detail.user.guideProfile?.primaryDistrictId ?? '');
+      setEditHoodId(detail.user.guideProfile?.hoodId ?? '');
       if (detail.user.guideProfile?.baseCityId) {
         setGuideCityId(detail.user.guideProfile.baseCityId);
+      }
+      if (detail.user.guideProfile?.countryId) {
+        setGuideCountryId(detail.user.guideProfile.countryId);
+      }
+      if (detail.user.guideProfile?.regionId) {
+        setGuideRegionId(detail.user.guideProfile.regionId);
       }
     } catch (e) {
       setMsg(e instanceof Error ? e.message : String(e));
@@ -321,14 +431,26 @@ export function UsersPage() {
     e.preventDefault();
     if (!detailGuide) return;
     try {
-      const cityId =
-        detailGuide.user.guideProfile?.baseCityId ?? guideCityId;
+      const body: Record<string, string> = {
+        assignmentLevel: editLevel,
+      };
+      if (editLevel === 'COUNTRY') body.countryId = guideCountryId;
+      if (editLevel === 'STATE') body.regionId = guideRegionId;
+      if (editLevel === 'CITY') body.baseCityId = guideCityId;
+      if (editLevel === 'DISTRICT') {
+        body.baseCityId =
+          detailGuide.user.guideProfile?.baseCityId ?? guideCityId;
+        body.primaryDistrictId = editDistrictId;
+      }
+      if (editLevel === 'HOOD') {
+        body.baseCityId =
+          detailGuide.user.guideProfile?.baseCityId ?? guideCityId;
+        body.primaryDistrictId = editDistrictId;
+        body.hoodId = editHoodId;
+      }
       await api(`/v1/admin/guides/${detailGuide.user.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({
-          baseCityId: cityId,
-          primaryDistrictId: editDistrictId,
-        }),
+        body: JSON.stringify(body),
       });
       setMsg('Guide zone updated');
       await openGuide(detailGuide.user.id);
@@ -336,6 +458,16 @@ export function UsersPage() {
     } catch (err) {
       setMsg(err instanceof Error ? err.message : String(err));
     }
+  }
+
+  function guideCreateReady() {
+    if (guideLevel === 'COUNTRY') return Boolean(guideCountryId);
+    if (guideLevel === 'STATE') return Boolean(guideRegionId);
+    if (guideLevel === 'CITY') return Boolean(guideCityId);
+    if (guideLevel === 'DISTRICT') {
+      return Boolean(guideCityId && guideDistrictId);
+    }
+    return Boolean(guideCityId && guideDistrictId && guideHoodId);
   }
 
   async function openBusiness(id: string) {
@@ -449,9 +581,8 @@ export function UsersPage() {
         <form onSubmit={addGuide} style={ui.panel}>
           <h2>Add Guide</h2>
           <p style={{ ...ui.muted, marginTop: 0 }}>
-            Creates an approved Guide. <strong>City + district are required</strong>{' '}
-            so the Guide appears on the Map (orange pin). Share the password
-            securely.
+            Creates an approved Guide with an assignment level (Hood → Country).
+            Scope is Admin-managed; Guide Map shows a green circle for that zone.
           </p>
           <div style={ui.grid2}>
             <label>
@@ -474,40 +605,123 @@ export function UsersPage() {
               />
             </label>
             <label>
-              City
+              Assignment level
               <select
-                required
                 style={ui.input}
-                value={guideCityId}
-                onChange={(e) => setGuideCityId(e.target.value)}
+                value={guideLevel}
+                onChange={(e) =>
+                  setGuideLevel(e.target.value as AssignmentLevel)
+                }
               >
-                <option value="">Select city…</option>
-                {cities.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
+                {ASSIGNMENT_LEVELS.map((l) => (
+                  <option key={l} value={l}>
+                    {l}
                   </option>
                 ))}
               </select>
             </label>
-            <label>
-              District / zone
-              <select
-                required
-                style={ui.input}
-                value={guideDistrictId}
-                onChange={(e) => setGuideDistrictId(e.target.value)}
-                disabled={!districts.length}
-              >
-                <option value="">Select district…</option>
-                {districts.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {(guideLevel === 'COUNTRY' ||
+              guideLevel === 'STATE' ||
+              guideLevel === 'CITY' ||
+              guideLevel === 'DISTRICT' ||
+              guideLevel === 'HOOD') && (
+              <label>
+                Country
+                <select
+                  style={ui.input}
+                  value={guideCountryId}
+                  onChange={(e) => setGuideCountryId(e.target.value)}
+                >
+                  <option value="">Select…</option>
+                  {countries.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {(guideLevel === 'STATE' ||
+              guideLevel === 'CITY' ||
+              guideLevel === 'DISTRICT' ||
+              guideLevel === 'HOOD') && (
+              <label>
+                State (region)
+                <select
+                  style={ui.input}
+                  value={guideRegionId}
+                  onChange={(e) => setGuideRegionId(e.target.value)}
+                  disabled={guideLevel !== 'STATE' && !regions.length}
+                >
+                  <option value="">Select…</option>
+                  {regions.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {(guideLevel === 'CITY' ||
+              guideLevel === 'DISTRICT' ||
+              guideLevel === 'HOOD') && (
+              <label>
+                City
+                <select
+                  required
+                  style={ui.input}
+                  value={guideCityId}
+                  onChange={(e) => setGuideCityId(e.target.value)}
+                >
+                  <option value="">Select city…</option>
+                  {cities.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {(guideLevel === 'DISTRICT' || guideLevel === 'HOOD') && (
+              <label>
+                District
+                <select
+                  required
+                  style={ui.input}
+                  value={guideDistrictId}
+                  onChange={(e) => setGuideDistrictId(e.target.value)}
+                  disabled={!districts.length}
+                >
+                  <option value="">Select district…</option>
+                  {districts.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {guideLevel === 'HOOD' ? (
+              <label>
+                Hood
+                <select
+                  required
+                  style={ui.input}
+                  value={guideHoodId}
+                  onChange={(e) => setGuideHoodId(e.target.value)}
+                  disabled={!hoods.length}
+                >
+                  <option value="">Select hood…</option>
+                  {hoods.map((h) => (
+                    <option key={h.id} value={h.id}>
+                      {h.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
           </div>
-          <button type="submit" style={ui.btn} disabled={!guideCityId || !guideDistrictId}>
+          <button type="submit" style={ui.btn} disabled={!guideCreateReady()}>
             Create Guide
           </button>
         </form>
@@ -614,16 +828,40 @@ export function UsersPage() {
               users.map((u) => {
                 const profile =
                   tab === 'GUIDE' ? u.guideProfile : u.businessProfile;
-                const hasZone = Boolean(
-                  profile?.primaryDistrictId || profile?.baseCityId,
-                );
+                const guideProfile = tab === 'GUIDE' ? u.guideProfile : null;
+                const hasZone =
+                  tab === 'GUIDE'
+                    ? Boolean(
+                        guideProfile?.assignmentLevel === 'COUNTRY'
+                          ? guideProfile.countryId
+                          : guideProfile?.assignmentLevel === 'STATE'
+                            ? guideProfile.regionId
+                            : guideProfile?.assignmentLevel === 'CITY'
+                              ? guideProfile.baseCityId
+                              : guideProfile?.assignmentLevel === 'HOOD'
+                                ? guideProfile.hoodId
+                                : guideProfile?.primaryDistrictId ||
+                                  guideProfile?.baseCityId,
+                      )
+                    : Boolean(
+                        profile?.primaryDistrictId || profile?.baseCityId,
+                      );
                 const zoneLabel =
-                  tab === 'GUIDE' || tab === 'BUSINESS'
-                    ? profile?.primaryDistrict?.name ??
-                      (profile?.baseCity?.name
-                        ? `${profile.baseCity.name} · unassigned`
-                        : 'No zone')
-                    : '—';
+                  tab === 'GUIDE' && guideProfile
+                    ? `${guideProfile.assignmentLevel ?? 'DISTRICT'} · ${
+                        guideProfile.hood?.name ??
+                        guideProfile.primaryDistrict?.name ??
+                        guideProfile.baseCity?.name ??
+                        guideProfile.region?.name ??
+                        guideProfile.country?.name ??
+                        'No zone'
+                      }`
+                    : tab === 'BUSINESS'
+                      ? profile?.primaryDistrict?.name ??
+                        (profile?.baseCity?.name
+                          ? `${profile.baseCity.name} · unassigned`
+                          : 'No zone')
+                      : '—';
                 return (
                 <tr key={u.id}>
                   <td>
@@ -634,9 +872,7 @@ export function UsersPage() {
                     {tab === 'GUIDE' || tab === 'BUSINESS' ? (
                       <span
                         className={`ll-badge ${
-                          hasZone && profile?.primaryDistrictId
-                            ? 'll-badge--ok'
-                            : 'll-badge--warn'
+                          hasZone ? 'll-badge--ok' : 'll-badge--warn'
                         }`}
                       >
                         {zoneLabel}
@@ -756,34 +992,117 @@ export function UsersPage() {
           <p style={ui.muted}>
             Zone:{' '}
             <strong>
-              {detailGuide.user.guideProfile?.primaryDistrict?.name ??
+              {detailGuide.user.guideProfile?.assignmentLevel ?? 'DISTRICT'} ·{' '}
+              {detailGuide.user.guideProfile?.hood?.name ??
+                detailGuide.user.guideProfile?.primaryDistrict?.name ??
+                detailGuide.user.guideProfile?.baseCity?.name ??
+                detailGuide.user.guideProfile?.region?.name ??
+                detailGuide.user.guideProfile?.country?.name ??
                 'Unassigned'}
             </strong>
-            {detailGuide.user.guideProfile?.baseCity
-              ? ` · ${detailGuide.user.guideProfile.baseCity.name}`
-              : ''}
           </p>
           <form onSubmit={saveGuideDistrict} style={{ marginBottom: '1rem' }}>
-            <label>
-              Update district
-              <select
-                style={ui.input}
-                value={editDistrictId}
-                onChange={(e) => setEditDistrictId(e.target.value)}
-              >
-                <option value="">Select…</option>
-                {districts.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="submit"
-              style={ui.btn}
-              disabled={!editDistrictId}
-            >
+            <div style={ui.grid2}>
+              <label>
+                Assignment level
+                <select
+                  style={ui.input}
+                  value={editLevel}
+                  onChange={(e) =>
+                    setEditLevel(e.target.value as AssignmentLevel)
+                  }
+                >
+                  {ASSIGNMENT_LEVELS.map((l) => (
+                    <option key={l} value={l}>
+                      {l}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {(editLevel === 'DISTRICT' || editLevel === 'HOOD') && (
+                <label>
+                  District
+                  <select
+                    style={ui.input}
+                    value={editDistrictId}
+                    onChange={(e) => setEditDistrictId(e.target.value)}
+                  >
+                    <option value="">Select…</option>
+                    {districts.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {editLevel === 'HOOD' ? (
+                <label>
+                  Hood
+                  <select
+                    style={ui.input}
+                    value={editHoodId}
+                    onChange={(e) => setEditHoodId(e.target.value)}
+                  >
+                    <option value="">Select…</option>
+                    {hoods.map((h) => (
+                      <option key={h.id} value={h.id}>
+                        {h.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {editLevel === 'CITY' ? (
+                <label>
+                  City
+                  <select
+                    style={ui.input}
+                    value={guideCityId}
+                    onChange={(e) => setGuideCityId(e.target.value)}
+                  >
+                    {cities.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {editLevel === 'STATE' ? (
+                <label>
+                  State
+                  <select
+                    style={ui.input}
+                    value={guideRegionId}
+                    onChange={(e) => setGuideRegionId(e.target.value)}
+                  >
+                    {regions.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {editLevel === 'COUNTRY' ? (
+                <label>
+                  Country
+                  <select
+                    style={ui.input}
+                    value={guideCountryId}
+                    onChange={(e) => setGuideCountryId(e.target.value)}
+                  >
+                    {countries.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+            </div>
+            <button type="submit" style={ui.btn}>
               Save zone
             </button>
           </form>

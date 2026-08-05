@@ -1,7 +1,7 @@
 # 03 — Actors, Roles & Permissions
 
 **Document type:** Product + security model  
-**Version:** 1.0  
+**Version:** 2.0 (Vision 2.0 Local Companion)  
 **Language:** English
 
 ---
@@ -12,13 +12,13 @@ LocalLife AI has four primary system roles:
 
 | Role code | Display name | Primary purpose |
 | --- | --- | --- |
-| `CLIENT` | Client / End user | Ask, discover, save, review |
-| `GUIDE` | Local Guide | Contribute verified local knowledge |
+| `CLIENT` | Client / End user | Ask, plan, save, review; Avatar companion |
+| `GUIDE` | Local Guide (Main or SubGuide) | Contribute verified zone knowledge |
 | `BUSINESS` | Business Owner | Manage venue profile, promote, analytics |
-| `ADMIN` | Administrator | Moderate, approve, configure platform |
+| `ADMIN` | Administrator | Moderate, approve, SubGuide confirm, configure |
 
 A single human account may hold **one primary role**.  
-Future option: multi-role accounts via explicit linking (e.g., user is also guide) — not required for MVP, but schema should allow `UserRole` join if needed.
+SubGuide is **not** a separate role code — same `GUIDE` + `GuideProfile.parentGuideId`.
 
 ---
 
@@ -26,173 +26,132 @@ Future option: multi-role accounts via explicit linking (e.g., user is also guid
 
 ```text
 Administrator
-      │
+      │ confirms SubGuides / moderates
  ┌────┴────┐
  │         │
-Guide   Business
+Main Guide ──proposes──► SubGuide (border)
  │         │
+ │      Business
  └────┬────┘
-      │
- Verified Knowledge Base
-      │
       ▼
- AI Assistant (retrieval + generation)
-      │
+ Verified Knowledge Base (+ freshness)
+      ▼
+ AI Companion (retrieval + plans + Avatar cues)
       ▼
    Client
 ```
-
-Guides and businesses **feed** knowledge.  
-Admins **gate** quality.  
-AI **serves** clients from approved knowledge.
 
 ---
 
 ## 3. Actor: Client
 
-### 3.1 Description
-
-The final consumer of the product — tourist, student, expat, business traveler, or local resident.
-
-### 3.2 Capabilities (MVP)
+### 3.1 Capabilities (MVP companion)
 
 - Register / login / logout
-- Manage profile and preferences
-- Use AI chat
-- Browse places, events, experiences
-- View maps / distances
-- Save favorites
-- Write reviews / upload photos (with moderation rules)
-- Report content
-- Receive basic notifications (later-ready)
+- Deep identity onboarding + **hard filters**
+- AI chat → save/edit **plans**; open plan packs
+- Browse/search places, events, experiences
+- Floating **Avatar** cues (open chat / continue plan)
+- Favorites, reviews/photos, content reports
+- Offline: active plan + emergency strip + cached cues
 
-### 3.3 Permissions matrix (Client)
+### 3.2 Permissions matrix (Client)
 
 | Resource | Create | Read | Update | Delete |
 | --- | --- | --- | --- | --- |
-| Own profile | — | Yes | Yes | Soft-delete request |
-| Own preferences | Yes | Yes | Yes | Yes |
-| Places | No | Approved only | No | No |
-| Events | No | Approved/public | No | No |
-| Reviews (own) | Yes | Yes | Yes | Soft-delete |
-| Reviews (others) | No | Yes | No | No |
-| Favorites | Yes | Own | Yes | Yes |
-| Conversations | Yes | Own | — | Soft-delete own |
-| Reports | Yes | Own | No | No |
+| Own profile / preferences | — / Yes | Yes | Yes | Soft-delete request |
+| Places / events | No | Approved public | No | No |
+| ZoneSafetyAssessment | No | **Derived advice only** | No | No |
+| ClientPlan / steps | Yes | Own | Own | Soft |
+| AvatarCue | No | Own | Mark read | No |
+| Reviews (own) | Yes | Yes | Yes | Soft |
+| Favorites / Reports | Yes | Own | Yes / No | Yes / No |
+| Conversations | Yes | Own | — | Soft |
 
-### 3.4 Client constraints
+### 3.3 Constraints
 
-- Cannot publish places directly in MVP (optional “suggest place” → pending)
-- Cannot bypass sponsorship labeling
+- Hard filters are enforced server-side (not optional hints)
+- Cannot see raw `SafetyLevel` dumps
 - Rate-limited on AI and review creation
 
 ---
 
-## 4. Actor: Local Guide
+## 4. Actor: Local Guide (Main vs SubGuide)
 
-### 4.1 Description
+### 4.1 Shared
 
-Trusted local experts who enrich the platform with authentic knowledge.
+Both use role `GUIDE`. Onboarding: `APPLIED` → `UNDER_REVIEW` → `APPROVED` | `REJECTED` | `SUSPENDED`.  
+Only approved guides publish inside their scope.
 
-### 4.2 Onboarding states
+### 4.2 Main Guide
 
-`APPLIED` → `UNDER_REVIEW` → `APPROVED` | `REJECTED` | `SUSPENDED`
+| Capability | Allowed |
+| --- | --- |
+| Hierarchical zone assignment (Admin-set) | Yes — one Main per zone key |
+| Rich contributions (places, transport, tips, events, experiences, zone safety) | Inside assignment scope |
+| Propose Business | Yes → Admin approve |
+| **Propose SubGuide** (email, name, formation note + **draw border**) | Yes → `PENDING_ADMIN` |
+| Publish outside own assignment | No |
 
-Only `APPROVED` guides can publish (or submit for approval, depending on policy).
+### 4.3 SubGuide
 
-### 4.3 Capabilities
-
-- Maintain guide profile (bio, languages, city expertise, assigned city/district)
-- Add/edit places with category + practical attributes (submit for approval)
-- Add local tips / how-to content
-- Create events and experiences (moderated)
-- Suggest hidden / practical places (repair, budget shops, beaches, sunset spots, etc.)
-- Propose new **Business** accounts for Admin approval
-- Update outdated information (own submissions)
-- (Future / Wave 2) LocalRule + transport note contributions; answer community questions
+| Capability | Allowed |
+| --- | --- |
+| Created only after **Admin confirms** SubGuideApplication | Yes |
+| `parentGuideId` + `borderGeoJson` set | Required |
+| Contribute / publish | **Inside border only** (server enforces) |
+| Propose further SubGuides | No (MVP) |
+| Change own border | No — Main/Admin only |
 
 ### 4.4 Permissions matrix (Guide)
 
-| Resource | Create | Read | Update | Delete |
-| --- | --- | --- | --- | --- |
-| Guide profile (own) | Yes | Yes | Yes | No |
-| Places (own submissions) | Yes | Yes | Yes (while pending/owned) | Soft |
-| Local tips / HowTo | Yes | Yes | Own | Soft |
-| Events (own submissions) | Yes | Yes | Own | Soft |
-| Experiences | Yes | Yes | Own | Soft |
-| Business applications | Propose | Own | No | No |
-| Reviews | As client | As client | As client | As client |
-| Admin settings | No | No | No | No |
+| Resource | Main | SubGuide |
+| --- | --- | --- |
+| Guide profile (own) | CRUD limited | CRUD limited |
+| Places / tips / events / experiences (own) | Create/update in scope | Create/update **in border** |
+| ZoneSafetyAssessment | In scope | In border |
+| SubGuideApplication | Create / read own proposals | No |
+| Business applications | Propose | No |
+| Admin settings | No | No |
 
-### 4.5 Guide quality rules
+### 4.5 Quality rules
 
-- Content should include source notes where relevant
-- Edits to critical safety/rules content always require admin review
-- Trust score can weight AI retrieval later
+- Guide = **comments only** (no Guide star scores); Client = rating + comment
+- Critical safety/rules edits need Admin review
+- Freshness: monthly refresh; stale → AI down-rank
+- Author language as written; content translation later
 
 ---
 
 ## 5. Actor: Business Owner
 
-### 5.1 Description
-
-Represents a venue or service provider (restaurant, hotel, tour company, museum, café, activity operator).
-
-### 5.2 Capabilities
-
-- Claim / manage business profile linked to Place(s)
-- Update business info (hours, photos, contact) under moderation policy
-- Publish events
-- Promote services (sponsorship later)
-- View analytics (views, saves, chat mentions — later)
-- Manage bookings (future)
-
-### 5.3 Permissions matrix (Business)
+*(Unchanged intent from v1 — claim/profile, limited place fields, events; bookings future.)*
 
 | Resource | Create | Read | Update | Delete |
 | --- | --- | --- | --- | --- |
 | Business profile (own) | Yes | Yes | Yes | No |
 | Linked place fields | Limited | Yes | Limited | No |
 | Events (own) | Yes | Yes | Own | Soft |
-| Sponsorship campaigns | Future | Own | Own | Own |
-| Bookings | Future | Own | Own | — |
-| Platform users’ private data | No | No | No | No |
+| Bookings / sponsorship | Future | Own | Own | — |
 
-### 5.4 Business constraints
-
-- Cannot fake reviews
-- Cannot silently inject ads into AI answers without `isSponsored` labeling
-- Claim verification required before full control
+Constraints: no fake reviews; sponsorship labeled; claim verified before full control.
 
 ---
 
 ## 6. Actor: Administrator
 
-### 6.1 Description
+### 6.1 Capabilities (companion additions)
 
-Internal operators responsible for quality, safety, and configuration.
+- Approve/reject guides, business claims, Guide-proposed Business apps
+- **SubGuide confirm queue:** review parent zone vs drawn border + formation note → Approve (create GUIDE user + `parentGuideId` + temp password) or Reject
+- Validate places, events, experiences, tips, local rules, arrival, **zone safety**
+- Moderate reports → route Guide verify → replan notify
+- Manage geo, categories, feature flags, AI model config, city activation
+- Suspend users/content; view Guide historic
 
-### 6.2 Capabilities
+### 6.2 Admin tiers
 
-- Approve/reject guides, business claims, and **Guide-proposed Business applications**
-- Validate places, events, experiences, tips, local rules, arrival guides
-- View full Guide historic (all contribution types)
-- Moderate reports and reviews
-- Manage categories, countries, cities
-- Manage sponsorship inventory
-- View platform analytics
-- Suspend users/content
-- Configure feature flags / country pack activation
-
-### 6.3 Admin tiers (recommended)
-
-| Tier | Scope |
-| --- | --- |
-| `ADMIN_CITY` | One or more cities |
-| `ADMIN_COUNTRY` | Country pack |
-| `ADMIN_SUPER` | Global configuration |
-
-MVP may start with `ADMIN_SUPER` only, but schema should support scoped admins.
+`ADMIN_CITY` | `ADMIN_COUNTRY` | `ADMIN_SUPER` — MVP may start with SUPER only.
 
 ---
 
@@ -200,82 +159,52 @@ MVP may start with `ADMIN_SUPER` only, but schema should support scoped admins.
 
 ### 7.1 Verification status
 
-Most public content uses:
+`DRAFT | PENDING | APPROVED | REJECTED | ARCHIVED` — AI default: **APPROVED only**.
 
-`DRAFT | PENDING | APPROVED | REJECTED | ARCHIVED`
+### 7.2 Scope enforcement
 
-AI retrieval default: **APPROVED only**.
-
-### 7.2 Ownership
-
-Every mutable entity should track:
-
-- `createdByUserId`
-- `updatedByUserId`
-- `ownedByGuideId` / `ownedByBusinessId` when applicable
+1. Main Guide: assignment hierarchy (country → hood)
+2. SubGuide: point-in-polygon / borderGeoJson must be inside parent scope
+3. Admin: city/country/global scope
 
 ### 7.3 Report & moderation
 
-Any client can report:
-
-- place
-- review
-- event
-- user
-- AI answer quality (feedback)
-
-Admins resolve reports: `OPEN | IN_REVIEW | RESOLVED | DISMISSED`
+Clients report place/review/event/user/AI answer. Status: `OPEN | IN_REVIEW | RESOLVED | DISMISSED`.  
+Companion path: report inaccurate/closed → Admin → Guide verify → update → replan + Avatar cue.
 
 ---
 
-## 8. Authentication & authorization model
+## 8. Authentication & authorization
 
-- Auth: JWT access token + refresh token
-- Passwords hashed (Argon2id or bcrypt)
-- Authorization: role guards + resource ownership checks
-- Optional later: OAuth (Google/Apple)
-
-Every protected endpoint must check:
-
-1. authenticated identity
-2. role permission
-3. resource ownership / city scope (for admins)
-4. content status visibility rules
+- JWT access + refresh; passwords Argon2id/bcrypt; optional Google OAuth for Clients
+- Guards: identity → role → ownership → **geo/border scope** → visibility status
 
 ---
 
-## 9. AI-facing actor implications
+## 9. AI-facing implications
 
-The AI is **not** a separate login role.  
-It is a system component that reads as a privileged internal service with constraints:
+AI is not a login role. It may:
 
-- may read APPROVED knowledge
-- may read requesting user’s profile/preferences/conversation
-- may not expose other users’ private conversations
-- must respect sponsorship disclosure rules
-- must prefer higher-trust sources
+- read APPROVED knowledge + requesting user’s prefs/hard filters/plans
+- use zone safety **internally** (never expose raw danger enums to Client)
+- create Avatar cues / plan drafts for the current user
+- not expose other users’ private data
 
 ---
 
-## 10. Future actors (documented, not MVP)
+## 10. Future actors (not MVP)
 
-| Actor | Purpose |
-| --- | --- |
-| Content Agency Partner | Bulk city pack production |
-| Municipality / Tourism Board | Official events & notices |
-| Support Agent | Customer support console |
-| Data Analyst (read-only) | BI access |
+Content Agency Partner · Municipality / Tourism Board · Support Agent · Data Analyst
 
 ---
 
-## 11. Summary permission philosophy
+## 11. Summary
 
-- **Clients consume**
-- **Guides contribute expertise**
-- **Businesses manage commercial presence**
-- **Admins protect trust**
-
-Trust is the product. Permissions exist to protect trust.
+- **Clients** consume companion (plans, Avatar, hard filters)
+- **Main Guides** own zones and recruit SubGuides
+- **SubGuides** contribute inside Admin-confirmed borders
+- **Businesses** manage commercial presence
+- **Admins** protect trust (including SubGuide confirm)
 
 ---
 

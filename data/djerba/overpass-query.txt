@@ -1,0 +1,13 @@
+[out:json][timeout:90];
+(
+  node["amenity"~"^(pharmacy|hospital|clinic|restaurant|cafe|atm|bank|fuel)$"](33.65,10.70,33.95,11.15);
+  node["tourism"~"^(hotel|attraction|museum|viewpoint)$"](33.65,10.70,33.95,11.15);
+  node["natural"="beach"](33.65,10.70,33.95,11.15);
+  node["leisure"="beach_resort"](33.65,10.70,33.95,11.15);
+  node["amenity"="ferry_terminal"](33.65,10.70,33.95,11.15);
+  node["highway"="bus_stop"](33.65,10.70,33.95,11.15);
+  way["amenity"~"^(pharmacy|hospital|clinic|restaurant|cafe|atm|bank)$"](33.65,10.70,33.95,11.15);
+  way["tourism"~"^(hotel|attraction|museum)$"](33.65,10.70,33.95,11.15);
+  way["natural"="beach"](33.65,10.70,33.95,11.15);
+);
+out center tags;

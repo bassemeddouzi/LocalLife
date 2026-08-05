@@ -1041,6 +1041,213 @@ export async function seedDjerbaP0(
     },
   });
 
+  // --- Extra Djerba transport modes (demo / client-visible) ---
+  const walk = await prisma.transportSystem.create({
+    data: {
+      countryId,
+      cityId,
+      name: 'Walking (town centers)',
+      mode: TransportMode.WALK,
+      summary: 'Best for short hops inside Houmt Souk / Midoun centers.',
+      howItWorks: 'Stay on main lit streets; midday heat is intense — carry water.',
+      pricingType: PricingType.FREE,
+      priceMin: 0,
+      priceMax: 0,
+      currency: 'TND',
+      paymentMethods: [],
+      operatingHoursText: 'Daytime preferred; night only on busy lit roads',
+      coverageNotes: 'Practical under ~1.5 km',
+      warnings: ['Avoid empty side streets late at night', 'Summer heat 11:00–16:00'],
+      verificationStatus: VerificationStatus.APPROVED,
+      sourceType: SourceType.ADMIN,
+      lastReviewedAt: REVIEWED,
+    },
+  });
+
+  const bike = await prisma.transportSystem.create({
+    data: {
+      countryId,
+      cityId,
+      name: 'Bike rental',
+      mode: TransportMode.BIKE,
+      summary: 'Hotel / shop bike hire for coastal & village hops.',
+      howItWorks: 'Rent by half-day or day; lock at shops; bring ID deposit.',
+      pricingType: PricingType.FIXED,
+      priceMin: 15,
+      priceMax: 40,
+      currency: 'TND',
+      paymentMethods: [PaymentMethod.CASH],
+      operatingHoursText: 'Usually 08:00–19:00',
+      coverageNotes: 'Good for <12 km calm roads; sand tracks are hard',
+      warnings: ['Few bike lanes', 'Lights rare at night', 'Carry water'],
+      verificationStatus: VerificationStatus.APPROVED,
+      sourceType: SourceType.ADMIN,
+      lastReviewedAt: REVIEWED,
+    },
+  });
+
+  const scooter = await prisma.transportSystem.create({
+    data: {
+      countryId,
+      cityId,
+      name: 'Scooter / moto rental',
+      mode: TransportMode.SCOOTER,
+      summary: 'Popular tourist scooters for Midoun–beach–Houmt Souk.',
+      howItWorks: 'Passport deposit common; helmet required; agree return time.',
+      pricingType: PricingType.FIXED,
+      priceMin: 40,
+      priceMax: 90,
+      currency: 'TND',
+      paymentMethods: [PaymentMethod.CASH, PaymentMethod.CARD],
+      operatingHoursText: 'Day rentals; night riding not recommended for visitors',
+      coverageNotes: 'Island-wide if comfortable with traffic',
+      warnings: [
+        'Insurance varies — ask',
+        'Police checks possible',
+        'Sand + wind on coastal roads',
+      ],
+      verificationStatus: VerificationStatus.APPROVED,
+      sourceType: SourceType.ADMIN,
+      lastReviewedAt: REVIEWED,
+    },
+  });
+
+  const carRental = await prisma.transportSystem.create({
+    data: {
+      countryId,
+      cityId,
+      name: 'Car rental',
+      mode: TransportMode.CAR_RENTAL,
+      summary: 'Airport & Midoun agencies — best with family / luggage / ferry.',
+      howItWorks: 'Book desk or hotel desk; check fuel policy and spare tire.',
+      pricingType: PricingType.FIXED,
+      priceMin: 90,
+      priceMax: 220,
+      currency: 'TND',
+      paymentMethods: [PaymentMethod.CARD, PaymentMethod.CASH],
+      operatingHoursText: 'Airport desks follow flight waves',
+      coverageNotes: 'Full island + mainland via Ajim ferry',
+      warnings: ['Unmarked speed bumps', 'Parking tight in old souk'],
+      verificationStatus: VerificationStatus.APPROVED,
+      sourceType: SourceType.ADMIN,
+      lastReviewedAt: REVIEWED,
+    },
+  });
+
+  const bus = await prisma.transportSystem.create({
+    data: {
+      countryId,
+      cityId,
+      name: 'Local bus / minibus',
+      mode: TransportMode.BUS,
+      summary: 'Cheap inter-town buses (timetables shift — ask same morning).',
+      howItWorks: 'Board at marked stops/hubs; pay cash to conductor; say stop name.',
+      pricingType: PricingType.FIXED,
+      priceMin: 1,
+      priceMax: 5,
+      currency: 'TND',
+      paymentMethods: [PaymentMethod.CASH],
+      operatingHoursText: 'Mainly daytime; sparse evenings',
+      coverageNotes: 'Houmt Souk ↔ Midoun ↔ Ajim corridors (fake seed)',
+      warnings: ['Expect waits', 'Limited luggage space', 'Confirm last bus'],
+      verificationStatus: VerificationStatus.APPROVED,
+      sourceType: SourceType.ADMIN,
+      lastReviewedAt: REVIEWED,
+    },
+  });
+
+  const rideHail = await prisma.transportSystem.create({
+    data: {
+      countryId,
+      cityId,
+      name: 'App ride-hail (limited)',
+      mode: TransportMode.RIDE_HAILING,
+      summary: 'Patchy app coverage — treat as backup to cash taxi.',
+      howItWorks: 'Try app; if no driver, walk to taxi rank.',
+      pricingType: PricingType.METERED,
+      priceMin: 10,
+      priceMax: 55,
+      currency: 'TND',
+      paymentMethods: [PaymentMethod.APP_PAY, PaymentMethod.CASH],
+      coverageNotes: 'Unreliable outside Midoun hotel zone',
+      warnings: ['Do not wait forever — fall back to official taxi'],
+      appsJson: { notes: 'Coverage not guaranteed (demo)' },
+      verificationStatus: VerificationStatus.APPROVED,
+      sourceType: SourceType.ADMIN,
+      lastReviewedAt: REVIEWED,
+    },
+  });
+
+  const shuttle = await prisma.transportSystem.create({
+    data: {
+      countryId,
+      cityId,
+      name: 'Hotel / airport shuttle',
+      mode: TransportMode.AIRPORT_SHUTTLE,
+      summary: 'Pre-booked hotel transfers and seasonal shuttles.',
+      howItWorks: 'Confirm with hotel 24h ahead; driver waits at arrivals board.',
+      pricingType: PricingType.FIXED,
+      priceMin: 25,
+      priceMax: 70,
+      currency: 'TND',
+      paymentMethods: [PaymentMethod.CASH, PaymentMethod.CARD],
+      operatingHoursText: 'Flight-linked',
+      coverageNotes: 'Airport ↔ hotel zone mainly',
+      warnings: ['Must be pre-booked', 'Shared vans may wait other guests'],
+      verificationStatus: VerificationStatus.APPROVED,
+      sourceType: SourceType.ADMIN,
+      lastReviewedAt: REVIEWED,
+    },
+  });
+
+  const privateCar = await prisma.transportSystem.create({
+    data: {
+      countryId,
+      cityId,
+      name: 'Private car (yours / friend)',
+      mode: TransportMode.OTHER,
+      summary: 'If you already have a vehicle on the island.',
+      howItWorks: 'Use main roads; watch unmarked speed bumps; park outside old souk core.',
+      pricingType: PricingType.FREE,
+      priceMin: 0,
+      priceMax: 15,
+      currency: 'TND',
+      paymentMethods: [PaymentMethod.CASH],
+      coverageNotes: 'Fuel ~ petrol stations in Houmt Souk / Midoun (demo)',
+      warnings: ['Ferry ticket extra if crossing to mainland'],
+      appsJson: { clientTag: 'PRIVATE' },
+      verificationStatus: VerificationStatus.APPROVED,
+      sourceType: SourceType.ADMIN,
+      lastReviewedAt: REVIEWED,
+    },
+  });
+
+  void walk;
+  void bike;
+  void scooter;
+  void carRental;
+  void bus;
+  void rideHail;
+  void shuttle;
+  void privateCar;
+
+  const hubBusHs = await prisma.transportHub.create({
+    data: {
+      placeId: places['houmt-souk-louage'],
+      transportSystemId: bus.id,
+      hubType: 'BUS_STOP',
+      name: 'Houmt Souk bus / minibus',
+    },
+  });
+  const hubBusMidoun = await prisma.transportHub.create({
+    data: {
+      placeId: places['midoun-taxi-hub'],
+      transportSystemId: bus.id,
+      hubType: 'BUS_STOP',
+      name: 'Midoun bus stop',
+    },
+  });
+
   const routeData = [
     {
       systemId: taxi.id,
@@ -1095,6 +1302,24 @@ export async function seedDjerbaP0(
       min: 4,
       max: 8,
       freq: 'Daytime when full',
+    },
+    {
+      systemId: bus.id,
+      from: hubBusHs.id,
+      to: hubBusMidoun.id,
+      duration: 40,
+      min: 1.5,
+      max: 4,
+      freq: 'Sparse daytime (demo)',
+    },
+    {
+      systemId: bus.id,
+      from: hubBusMidoun.id,
+      to: hubBusHs.id,
+      duration: 40,
+      min: 1.5,
+      max: 4,
+      freq: 'Sparse daytime (demo)',
     },
     {
       systemId: taxi.id,

@@ -15,8 +15,13 @@ import {
 import {
   ClaimStatus,
   BusinessApplicationStatus,
+  ClientPlanStatus,
   GuideApplicationStatus,
+  GuideAssignmentLevel,
+  ReportReasonCode,
   ReportStatus,
+  ReportTargetType,
+  SubGuideApplicationStatus,
   UserRole,
   UserStatus,
   VerificationStatus,
@@ -38,6 +43,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../shared/audit.service';
 import { MemoryCacheService } from '../shared/memory-cache.service';
 import { zoneForCitySlug } from './city-zones';
+import {
+  assertOneMainGuidePerZone,
+  resolveAdminGuideAssignment,
+} from './guide-assignment';
 import type { Request } from 'express';
 
 class RejectDto {
@@ -66,11 +75,28 @@ class CreateGuideDto {
   @MaxLength(80)
   displayName!: string;
 
-  @IsUUID()
-  baseCityId!: string;
+  @IsEnum(GuideAssignmentLevel)
+  assignmentLevel!: GuideAssignmentLevel;
 
+  @IsOptional()
   @IsUUID()
-  primaryDistrictId!: string;
+  countryId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  regionId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  baseCityId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  primaryDistrictId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  hoodId?: string;
 
   @IsOptional()
   @IsString()
@@ -95,12 +121,28 @@ class UpdateGuideDto {
   languages?: string[];
 
   @IsOptional()
+  @IsEnum(GuideAssignmentLevel)
+  assignmentLevel?: GuideAssignmentLevel;
+
+  @IsOptional()
+  @IsUUID()
+  countryId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  regionId?: string;
+
+  @IsOptional()
   @IsUUID()
   baseCityId?: string;
 
   @IsOptional()
   @IsUUID()
   primaryDistrictId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  hoodId?: string;
 }
 
 class CreateBusinessDto {
@@ -363,6 +405,64 @@ export class AdminController {
       afterJson: after,
       requestId: req.requestId,
     });
+
+    if (
+      dto.status === ReportStatus.RESOLVED &&
+      before.reasonCode === ReportReasonCode.CLOSED &&
+      before.targetType === ReportTargetType.PLACE
+    ) {
+      const steps = await this.prisma.clientPlanStep.findMany({
+        where: {
+          placeId: before.targetId,
+          plan: { status: ClientPlanStatus.ACTIVE },
+        },
+        select: {
+          id: true,
+          planId: true,
+          plan: { select: { userId: true, title: true } },
+        },
+      });
+      const byUser = new Map<
+        string,
+        { planId: string; planTitle: string }
+      >();
+      for (const step of steps) {
+        if (!byUser.has(step.plan.userId)) {
+          byUser.set(step.plan.userId, {
+            planId: step.planId,
+            planTitle: step.plan.title,
+          });
+        }
+      }
+      for (const [ownerId, info] of byUser) {
+        const title = 'A stop on your plan may be closed';
+        const body = `“${info.planTitle}” includes a place confirmed closed. Consider replanning.`;
+        const notification = await this.prisma.notification.create({
+          data: {
+            userId: ownerId,
+            type: 'plan_replan',
+            title,
+            body,
+            data: {
+              planId: info.planId,
+              placeId: before.targetId,
+              reportId: before.id,
+            },
+          },
+        });
+        await this.prisma.avatarCue.create({
+          data: {
+            userId: ownerId,
+            animationHint: 'suggest',
+            deepLink: `/plans/${info.planId}`,
+            title,
+            body,
+            notificationId: notification.id,
+          },
+        });
+      }
+    }
+
     return after;
   }
 
@@ -579,12 +679,19 @@ export class AdminController {
             id: true,
             status: true,
             languages: true,
+            assignmentLevel: true,
+            countryId: true,
+            regionId: true,
             baseCityId: true,
             primaryDistrictId: true,
+            hoodId: true,
             baseCity: { select: { id: true, name: true, slug: true } },
             primaryDistrict: {
               select: { id: true, name: true, slug: true },
             },
+            hood: { select: { id: true, name: true, slug: true } },
+            region: { select: { id: true, name: true } },
+            country: { select: { id: true, name: true, iso2: true } },
           },
         },
         businessProfile: {
@@ -698,18 +805,15 @@ export class AdminController {
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new ConflictException('Email already registered');
 
-    const district = await this.prisma.district.findUnique({
-      where: { id: dto.primaryDistrictId },
+    const assignment = await resolveAdminGuideAssignment(this.prisma, {
+      assignmentLevel: dto.assignmentLevel,
+      countryId: dto.countryId,
+      regionId: dto.regionId,
+      baseCityId: dto.baseCityId,
+      primaryDistrictId: dto.primaryDistrictId,
+      hoodId: dto.hoodId,
     });
-    if (!district || district.cityId !== dto.baseCityId) {
-      throw new BadRequestException(
-        'primaryDistrictId must belong to baseCityId',
-      );
-    }
-    const city = await this.prisma.city.findUnique({
-      where: { id: dto.baseCityId },
-    });
-    if (!city) throw new BadRequestException('baseCityId not found');
+    await assertOneMainGuidePerZone(this.prisma, assignment);
 
     const password = tempPassword();
     const passwordHash = await argon2.hash(password);
@@ -727,8 +831,12 @@ export class AdminController {
             bio: dto.bio,
             languages,
             status: GuideApplicationStatus.APPROVED,
-            baseCityId: dto.baseCityId,
-            primaryDistrictId: dto.primaryDistrictId,
+            assignmentLevel: assignment.assignmentLevel,
+            countryId: assignment.countryId,
+            regionId: assignment.regionId,
+            baseCityId: assignment.baseCityId,
+            primaryDistrictId: assignment.primaryDistrictId,
+            hoodId: assignment.hoodId,
           },
         },
       },
@@ -744,12 +852,19 @@ export class AdminController {
             id: true,
             status: true,
             languages: true,
+            assignmentLevel: true,
+            countryId: true,
+            regionId: true,
             baseCityId: true,
             primaryDistrictId: true,
+            hoodId: true,
             baseCity: { select: { id: true, name: true, slug: true } },
             primaryDistrict: {
               select: { id: true, name: true, slug: true },
             },
+            hood: { select: { id: true, name: true, slug: true } },
+            region: { select: { id: true, name: true } },
+            country: { select: { id: true, name: true, iso2: true } },
           },
         },
       },
@@ -762,8 +877,7 @@ export class AdminController {
       afterJson: {
         email: user.email,
         role: user.role,
-        baseCityId: dto.baseCityId,
-        primaryDistrictId: dto.primaryDistrictId,
+        assignment,
       },
       requestId: req.requestId,
     });
@@ -784,37 +898,47 @@ export class AdminController {
     });
     if (!user?.guideProfile) throw new NotFoundException('Guide not found');
 
-    const nextCityId = dto.baseCityId ?? user.guideProfile.baseCityId;
-    const nextDistrictId =
-      dto.primaryDistrictId ?? user.guideProfile.primaryDistrictId;
+    const before = user.guideProfile;
+    const locationTouched =
+      dto.assignmentLevel !== undefined ||
+      dto.countryId !== undefined ||
+      dto.regionId !== undefined ||
+      dto.baseCityId !== undefined ||
+      dto.primaryDistrictId !== undefined ||
+      dto.hoodId !== undefined;
 
-    if (dto.baseCityId || dto.primaryDistrictId) {
-      if (!nextCityId || !nextDistrictId) {
-        throw new BadRequestException(
-          'baseCityId and primaryDistrictId are both required when updating location',
-        );
-      }
-      const district = await this.prisma.district.findUnique({
-        where: { id: nextDistrictId },
+    let assignmentUpdate: Awaited<
+      ReturnType<typeof resolveAdminGuideAssignment>
+    > | null = null;
+    if (locationTouched) {
+      assignmentUpdate = await resolveAdminGuideAssignment(this.prisma, {
+        assignmentLevel:
+          dto.assignmentLevel ?? before.assignmentLevel ?? GuideAssignmentLevel.DISTRICT,
+        countryId: dto.countryId ?? before.countryId,
+        regionId: dto.regionId ?? before.regionId,
+        baseCityId: dto.baseCityId ?? before.baseCityId,
+        primaryDistrictId: dto.primaryDistrictId ?? before.primaryDistrictId,
+        hoodId: dto.hoodId ?? before.hoodId,
       });
-      if (!district || district.cityId !== nextCityId) {
-        throw new BadRequestException(
-          'primaryDistrictId must belong to baseCityId',
-        );
+      if (!before.parentGuideId) {
+        await assertOneMainGuidePerZone(this.prisma, assignmentUpdate, id);
       }
     }
 
-    const before = user.guideProfile;
     const after = await this.prisma.guideProfile.update({
       where: { userId: id },
       data: {
         ...(dto.bio !== undefined ? { bio: dto.bio } : {}),
         ...(dto.languages !== undefined ? { languages: dto.languages } : {}),
-        ...(dto.baseCityId !== undefined
-          ? { baseCityId: dto.baseCityId }
-          : {}),
-        ...(dto.primaryDistrictId !== undefined
-          ? { primaryDistrictId: dto.primaryDistrictId }
+        ...(assignmentUpdate
+          ? {
+              assignmentLevel: assignmentUpdate.assignmentLevel,
+              countryId: assignmentUpdate.countryId,
+              regionId: assignmentUpdate.regionId,
+              baseCityId: assignmentUpdate.baseCityId,
+              primaryDistrictId: assignmentUpdate.primaryDistrictId,
+              hoodId: assignmentUpdate.hoodId,
+            }
           : {}),
       },
       include: {
@@ -828,6 +952,9 @@ export class AdminController {
             longitude: true,
           },
         },
+        hood: { select: { id: true, name: true, slug: true } },
+        region: { select: { id: true, name: true } },
+        country: { select: { id: true, name: true, iso2: true } },
       },
     });
     await this.audit.log({
@@ -836,12 +963,20 @@ export class AdminController {
       entityType: 'guide',
       entityId: id,
       beforeJson: {
+        assignmentLevel: before.assignmentLevel,
         baseCityId: before.baseCityId,
         primaryDistrictId: before.primaryDistrictId,
+        hoodId: before.hoodId,
+        regionId: before.regionId,
+        countryId: before.countryId,
       },
       afterJson: {
+        assignmentLevel: after.assignmentLevel,
         baseCityId: after.baseCityId,
         primaryDistrictId: after.primaryDistrictId,
+        hoodId: after.hoodId,
+        regionId: after.regionId,
+        countryId: after.countryId,
       },
       requestId: req.requestId,
     });
@@ -855,6 +990,135 @@ export class AdminController {
         guideProfile: after,
       },
     };
+  }
+
+  @Get('subguide-applications')
+  @Auth(UserRole.ADMIN)
+  listSubGuideApplications(
+    @Query('status') status?: string,
+  ) {
+    return this.prisma.subGuideApplication.findMany({
+      where: status
+        ? { status: status as import('@prisma/client').SubGuideApplicationStatus }
+        : { status: 'PENDING_ADMIN' },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        mainGuideUser: {
+          select: { id: true, email: true, displayName: true },
+        },
+      },
+    });
+  }
+
+  @Post('subguide-applications/:id/approve')
+  @Auth(UserRole.ADMIN)
+  async approveSubGuide(
+    @CurrentUser() admin: AuthUser,
+    @Param('id') id: string,
+    @Body() body: { adminNote?: string },
+    @Req() req: Request & { requestId?: string },
+  ) {
+    const app = await this.prisma.subGuideApplication.findUnique({
+      where: { id },
+    });
+    if (!app) throw new NotFoundException('Application not found');
+    if (app.status !== 'PENDING_ADMIN') {
+      throw new BadRequestException('Application is not pending');
+    }
+    const main = await this.prisma.guideProfile.findUnique({
+      where: { userId: app.mainGuideUserId },
+    });
+    if (!main) throw new BadRequestException('Main Guide profile missing');
+
+    const existing = await this.prisma.user.findUnique({
+      where: { email: app.email },
+    });
+    if (existing) {
+      throw new ConflictException('Email already registered');
+    }
+
+    const password = randomBytes(9).toString('base64url');
+    const passwordHash = await argon2.hash(password);
+    const created = await this.prisma.user.create({
+      data: {
+        email: app.email,
+        displayName: app.displayName,
+        role: UserRole.GUIDE,
+        passwordHash,
+        status: UserStatus.ACTIVE,
+        phone: app.phone ?? undefined,
+        preference: { create: {} },
+        guideProfile: {
+          create: {
+            status: GuideApplicationStatus.APPROVED,
+            languages: ['en', 'fr', 'ar'],
+            assignmentLevel: main.assignmentLevel,
+            countryId: main.countryId,
+            regionId: main.regionId,
+            baseCityId: main.baseCityId,
+            primaryDistrictId: main.primaryDistrictId,
+            hoodId: main.hoodId,
+            parentGuideId: main.id,
+            borderGeoJson: app.borderGeoJson ?? undefined,
+            bio: app.formationNote ?? undefined,
+          },
+        },
+      },
+      include: { guideProfile: true },
+    });
+
+    await this.prisma.subGuideApplication.update({
+      where: { id },
+      data: {
+        status: 'APPROVED',
+        adminReviewedAt: new Date(),
+        adminReviewerId: admin.id,
+        adminNote: body.adminNote,
+        createdUserId: created.id,
+      },
+    });
+
+    await this.audit.log({
+      actorUserId: admin.id,
+      action: 'subguide.approve',
+      entityType: 'sub_guide_application',
+      entityId: id,
+      afterJson: { userId: created.id, email: created.email },
+      requestId: req.requestId,
+    });
+
+    return { user: created, temporaryPassword: password };
+  }
+
+  @Post('subguide-applications/:id/reject')
+  @Auth(UserRole.ADMIN)
+  async rejectSubGuide(
+    @CurrentUser() admin: AuthUser,
+    @Param('id') id: string,
+    @Body() body: { adminNote?: string },
+    @Req() req: Request & { requestId?: string },
+  ) {
+    const app = await this.prisma.subGuideApplication.findUnique({
+      where: { id },
+    });
+    if (!app) throw new NotFoundException('Application not found');
+    await this.prisma.subGuideApplication.update({
+      where: { id },
+      data: {
+        status: 'REJECTED',
+        adminReviewedAt: new Date(),
+        adminReviewerId: admin.id,
+        adminNote: body.adminNote,
+      },
+    });
+    await this.audit.log({
+      actorUserId: admin.id,
+      action: 'subguide.reject',
+      entityType: 'sub_guide_application',
+      entityId: id,
+      requestId: req.requestId,
+    });
+    return { ok: true };
   }
 
   @Get('guides/:id')
@@ -882,6 +1146,9 @@ export class AdminController {
                 longitude: true,
               },
             },
+            hood: { select: { id: true, name: true, slug: true } },
+            region: { select: { id: true, name: true } },
+            country: { select: { id: true, name: true, iso2: true } },
           },
         },
       },
@@ -1613,6 +1880,38 @@ export class AdminController {
             }
           : null,
       })),
+    };
+  }
+
+  @Get('freshness')
+  @Auth(UserRole.ADMIN)
+  async freshness() {
+    const staleBefore = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const [stalePlaces, pendingSubGuides, openReports, planPackCount] =
+      await Promise.all([
+        this.prisma.place.count({
+          where: {
+            deletedAt: null,
+            OR: [
+              { lastReviewedAt: null },
+              { lastReviewedAt: { lt: staleBefore } },
+            ],
+          },
+        }),
+        this.prisma.subGuideApplication.count({
+          where: { status: SubGuideApplicationStatus.PENDING_ADMIN },
+        }),
+        this.prisma.report.count({
+          where: { status: ReportStatus.OPEN },
+        }),
+        this.prisma.planPack.count({ where: { enabled: true } }),
+      ]);
+    return {
+      stalePlaces,
+      pendingSubGuides,
+      openReports,
+      planPackCount,
+      staleThresholdDays: 30,
     };
   }
 

@@ -10,13 +10,12 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import type { CompositeNavigationProp, RouteProp } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { apiFetch } from '../api/client';
 import { useCity } from '../context/CityContext';
 import { colors } from '../theme';
-import type { MainTabParamList, RootStackParamList } from '../navigation/types';
+import type { RootStackParamList } from '../navigation/types';
 
 type Place = {
   id: string;
@@ -25,17 +24,14 @@ type Place = {
   primaryCategory?: { name: string } | null;
 };
 
-type Nav = CompositeNavigationProp<
-  BottomTabNavigationProp<MainTabParamList, 'ExploreTab'>,
-  NativeStackNavigationProp<RootStackParamList>
->;
+type Nav = NativeStackNavigationProp<RootStackParamList, 'Search'>;
 
 export function ExploreScreen() {
   const { t } = useTranslation();
   const { city } = useCity();
   const navigation = useNavigation<Nav>();
-  const route = useRoute<RouteProp<MainTabParamList, 'ExploreTab'>>();
-  const [q, setQ] = useState('');
+  const route = useRoute<RouteProp<RootStackParamList, 'Search'>>();
+  const [q, setQ] = useState(route.params?.q ?? '');
   const [page, setPage] = useState(1);
   const [items, setItems] = useState<Place[]>([]);
   const [totalPages, setTotalPages] = useState(1);
@@ -49,6 +45,24 @@ export function ExploreScreen() {
       setLoading(true);
       setError(null);
       try {
+        if (q.trim() && !categoryId) {
+          const params = new URLSearchParams({
+            cityId: city.id,
+            q: q.trim(),
+          });
+          const res = await apiFetch<{
+            places: Place[];
+            events: Array<{ id: string; title: string }>;
+          }>(`/v1/search?${params.toString()}`);
+          const mapped = (res.places ?? []).map((p) => ({
+            ...p,
+            summary: p.summary ?? '',
+          }));
+          setItems(mapped);
+          setTotalPages(1);
+          setPage(1);
+          return;
+        }
         const params = new URLSearchParams({
           cityId: city.id,
           page: String(pageNum),
@@ -86,6 +100,7 @@ export function ExploreScreen() {
         onChangeText={setQ}
         onSubmitEditing={() => void load(1, true)}
         returnKeyType="search"
+        autoFocus
       />
       {error ? <Text style={styles.err}>{error}</Text> : null}
       <FlatList

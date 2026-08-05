@@ -7,12 +7,20 @@ import { MessageRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../auth/auth.decorators';
 import { OrchestratorService } from './orchestrator.service';
+import { CompressionService } from './compression.service';
+import { IssueDetectorService } from './issue-detector.service';
+import { SessionContextService } from './session-context.service';
+import { AiFeatureFlagsService, AI_FEATURE_KEYS } from './ai-feature-flags.service';
 
 @Injectable()
 export class ConversationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly orchestrator: OrchestratorService,
+    private readonly compression: CompressionService,
+    private readonly issueDetector: IssueDetectorService,
+    private readonly sessionContext: SessionContextService,
+    private readonly featureFlags: AiFeatureFlagsService,
   ) {}
 
   create(user: AuthUser, dto: { title?: string; cityId?: string }) {
@@ -73,7 +81,9 @@ export class ConversationsService {
       cityId?: string;
       lat?: number;
       lng?: number;
+      gpsAccurate?: boolean;
       locale?: string;
+      smartBrief?: Record<string, unknown>;
     },
   ) {
     const conversation = await this.get(user, conversationId);
@@ -89,7 +99,7 @@ export class ConversationsService {
       });
     }
 
-    await this.prisma.message.create({
+    const userMessage = await this.prisma.message.create({
       data: {
         conversationId,
         role: MessageRole.USER,
@@ -97,13 +107,37 @@ export class ConversationsService {
       },
     });
 
+    if (dto.smartBrief && typeof dto.smartBrief === 'object') {
+      const sessionOn = await this.featureFlags.isEnabled(
+        AI_FEATURE_KEYS.sessionContext,
+        user.id,
+      );
+      if (sessionOn) {
+        await this.sessionContext.upsertSessionContext(user.id, {
+          conversationId,
+          cityId,
+          contextJson: dto.smartBrief,
+        });
+      }
+    }
+
     const answer = await this.orchestrator.answer({
       cityId,
       content: dto.content,
       locale: dto.locale ?? user.locale,
       lat: dto.lat,
       lng: dto.lng,
+      gpsAccurate: dto.gpsAccurate,
+      userId: user.id,
     });
+
+    const placeCitations = answer.citations
+      .filter((c) => c.entityType === 'place')
+      .filter(
+        (c, idx, arr) =>
+          arr.findIndex((x) => x.entityId === c.entityId) === idx,
+      )
+      .slice(0, 3);
 
     const assistant = await this.prisma.message.create({
       data: {
@@ -115,9 +149,12 @@ export class ConversationsService {
           reasons: answer.reasons,
           cards: answer.cards,
           meta: answer.meta,
+          citationTitles: Object.fromEntries(
+            placeCitations.map((c) => [c.entityId, c.title]),
+          ),
         },
         citations: {
-          create: answer.citations.map((c, idx) => ({
+          create: placeCitations.map((c, idx) => ({
             entityType: c.entityType,
             entityId: c.entityId,
             rank: idx,
@@ -126,6 +163,16 @@ export class ConversationsService {
       },
       include: { citations: true },
     });
+
+    const messageWithTitles = {
+      ...assistant,
+      citations: assistant.citations.map((c) => ({
+        ...c,
+        title:
+          placeCitations.find((p) => p.entityId === c.entityId)?.title ??
+          c.entityType,
+      })),
+    };
 
     await this.prisma.conversation.update({
       where: { id: conversationId },
@@ -155,12 +202,53 @@ export class ConversationsService {
       },
     });
 
+    const memoryOn = await this.featureFlags.isEnabled(
+      AI_FEATURE_KEYS.profileMemory,
+      user.id,
+    );
+    if (
+      memoryOn &&
+      (dto.smartBrief ||
+        this.isCompressionKeyEvent(dto.content))
+    ) {
+      await this.compression.compressConversationDelta(user.id, conversationId);
+    }
+
+    const issueOn = await this.featureFlags.isEnabled(
+      AI_FEATURE_KEYS.issueDetector,
+      user.id,
+    );
+    const detected = issueOn ? this.issueDetector.detect(dto.content) : null;
+    if (detected) {
+      const signal = await this.issueDetector.createSignal({
+        userId: user.id,
+        conversationId,
+        messageId: userMessage.id,
+        cityId,
+        reason: dto.content.slice(0, 600),
+        signalType: detected.signalType,
+        severity: detected.severity,
+        evidenceJson: { locale: dto.locale ?? user.locale },
+      });
+      await this.issueDetector.notifyGuide(signal.id);
+      await this.prisma.message.update({
+        where: { id: userMessage.id },
+        data: { issueSignalScannedAt: new Date() },
+      });
+    }
+
     return {
-      message: assistant,
+      message: messageWithTitles,
       grounding: answer.grounding,
       reasons: answer.reasons,
       cards: answer.cards,
       meta: answer.meta,
     };
+  }
+
+  private isCompressionKeyEvent(content: string) {
+    return /(plan|trip|family|friends|budget|prefer|solo|couple|transport|mood|conservative|adventure)/i.test(
+      content,
+    );
   }
 }

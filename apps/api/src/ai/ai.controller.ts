@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import {
+  IsBoolean,
   IsNumber,
   IsOptional,
   IsString,
@@ -46,9 +47,17 @@ class PostMessageDto {
   lng?: number;
 
   @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  gpsAccurate?: boolean;
+
+  @IsOptional()
   @IsString()
   @MaxLength(10)
   locale?: string;
+
+  @IsOptional()
+  smartBrief?: Record<string, unknown>;
 }
 
 class FeedbackDto {
